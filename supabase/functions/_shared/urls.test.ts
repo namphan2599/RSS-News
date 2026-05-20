@@ -30,8 +30,25 @@ Deno.test("buildContentHash hashes planned item identity fields", async () => {
   assertEquals(firstHash.length, 64);
   assertEquals(
     firstHash,
-    "3eec94911fb33356ff5002271513d584c7db630e83b8dbe6f8b2522da716c115",
+    "81c89c87e5613726dbb802cdec8f048dee11dee3e79e72ba1f424c3489117bc8",
   );
+});
+
+Deno.test("buildContentHash normalizes title case", async () => {
+  const firstHash = await buildContentHash({
+    feedId: "feed-1",
+    guid: "guid-1",
+    title: "A Story",
+    url: "https://example.com/story",
+  });
+  const secondHash = await buildContentHash({
+    feedId: "feed-1",
+    guid: "guid-1",
+    title: "a story",
+    url: "https://example.com/story",
+  });
+
+  assertEquals(firstHash, secondHash);
 });
 
 Deno.test("buildContentHash falls back to normalized URL when guid is blank", async () => {
@@ -44,6 +61,6 @@ Deno.test("buildContentHash falls back to normalized URL when guid is blank", as
 
   assertEquals(
     hash,
-    "e0493ec42c10a80d11fcf9fa32cd8be502c17e71e97b51137fcec92fa491bdbb",
+    "314e2af2ed5468a12b9fa68464f28578f2f988e3d5a1e3c52b45ea02f89ef6b9",
   );
 });

@@ -18,7 +18,7 @@ function removeTrailingSlash(url: string): string {
 }
 
 function normalizeTitle(title: string): string {
-  return title.trim().replace(/\s+/g, " ");
+  return title.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 export function normalizeUrl(url: string): string {
@@ -58,7 +58,7 @@ export async function buildContentHash(input: ContentHashInput): Promise<string>
     input.guid?.trim() || normalizeUrl(input.url),
     normalizeTitle(input.title),
     input.publishedAt ?? "",
-  ].join("\n");
+  ].join("|");
   const data = new TextEncoder().encode(content);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashBytes = [...new Uint8Array(hashBuffer)];

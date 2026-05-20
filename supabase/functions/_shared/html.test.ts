@@ -13,7 +13,7 @@ Deno.test("cleanDescription strips unsafe markup and normalizes text", () => {
 
 Deno.test("cleanDescription truncates at a word boundary when possible", () => {
   assertEquals(
-    cleanDescription("Alpha beta gamma delta", 16),
-    "Alpha beta gamma...",
+    cleanDescription("Alpha beta gamma delta", 12),
+    "Alpha beta...",
   );
 });
