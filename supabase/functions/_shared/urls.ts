@@ -13,6 +13,14 @@ function isTrackingParam(name: string): boolean {
   return lowerName.startsWith("utm_") || TRACKING_PARAMS.has(lowerName);
 }
 
+function removeTrailingSlash(url: string): string {
+  return url.replace(/\/(\?|$)/, "$1");
+}
+
+function normalizeTitle(title: string): string {
+  return title.trim().replace(/\s+/g, " ");
+}
+
 export function normalizeUrl(url: string): string {
   const trimmedUrl = url.trim();
 
@@ -30,13 +38,27 @@ export function normalizeUrl(url: string): string {
     }
 
     parsedUrl.searchParams.sort();
-    return parsedUrl.toString();
+    return removeTrailingSlash(parsedUrl.toString());
   } catch {
-    return trimmedUrl.split("#", 1)[0] ?? trimmedUrl;
+    return removeTrailingSlash(trimmedUrl.split("#", 1)[0] ?? trimmedUrl);
   }
 }
 
-export async function buildContentHash(content: string): Promise<string> {
+export interface ContentHashInput {
+  feedId: string;
+  guid?: string | null;
+  url: string;
+  title: string;
+  publishedAt?: string | null;
+}
+
+export async function buildContentHash(input: ContentHashInput): Promise<string> {
+  const content = [
+    input.feedId,
+    input.guid?.trim() || normalizeUrl(input.url),
+    normalizeTitle(input.title),
+    input.publishedAt ?? "",
+  ].join("\n");
   const data = new TextEncoder().encode(content);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashBytes = [...new Uint8Array(hashBuffer)];

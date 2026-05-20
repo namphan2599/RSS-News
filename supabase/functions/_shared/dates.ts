@@ -15,9 +15,12 @@ export function formatDateInTimezone(date: Date, timezone: string): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-export function digestStoragePath(date: Date): string {
-  const formattedDate = formatDateInTimezone(date, "UTC");
-  const [year, month] = formattedDate.split("-");
+export function digestStoragePath(date: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error("digestStoragePath date must use YYYY-MM-DD");
+  }
 
-  return `daily/${year}/${month}/${formattedDate}.md`;
+  const [year, month] = date.split("-");
+
+  return `daily/${year}/${month}/${date}.md`;
 }
