@@ -1,6 +1,10 @@
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net with schema extensions;
 
+select cron.unschedule(jobid)
+from cron.job
+where jobname = 'generate-daily-rss-digest';
+
 select cron.schedule(
   'generate-daily-rss-digest',
   '0 0 * * *',

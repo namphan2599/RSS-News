@@ -15,7 +15,7 @@ returns boolean
 language sql
 stable
 as $$
-  select coalesce(auth.jwt() ->> 'email', '') = coalesce(current_setting('app.owner_email', true), '');
+  select lower(nullif(trim(auth.jwt() ->> 'email'), '')) = lower(nullif(trim(current_setting('app.owner_email', true)), ''));
 $$;
 
 create table public.feeds (

@@ -4,6 +4,7 @@
 
 - Node.js 20 or newer
 - Supabase CLI
+- Docker Desktop for local database verification
 - A Supabase project
 - A Gemini API key
 
@@ -34,8 +35,17 @@ alter database postgres set app.supabase_url = 'https://your-project-ref.supabas
 alter database postgres set app.cron_secret = 'generate-a-long-random-string';
 ```
 
+On hosted Supabase, production cron secrets may be better stored through Supabase Vault where available. The database settings above remain compatible with plans where Vault-backed cron configuration is not available.
+
 Apply migrations:
 
 ```bash
 supabase db push
+```
+
+For local verification, start and reset the local Supabase database:
+
+```bash
+supabase db start
+supabase db reset
 ```
