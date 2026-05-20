@@ -1,7 +1,24 @@
 import type { DigestSummary } from "./ai/types.ts";
 
-function escapeMarkdown(text: string): string {
-  return text.replace(/([\\[\]])/g, "\\$1").trim();
+function plainText(text: string): string {
+  return text
+    .replace(/\[([^\]\n]+)\]\([^)]+\)/g, "$1")
+    .replace(/<[^>\n]*>/g, " ")
+    .replace(/[\\`*_#[\](){}!|>~-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function safeMarkdownUrl(url: string): string {
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+  } catch {
+    // Fall through to safe placeholder.
+  }
+  return "#";
 }
 
 export function renderDigestMarkdown(input: {
@@ -23,15 +40,19 @@ export function renderDigestMarkdown(input: {
     "",
     "## Executive Summary",
     "",
-    input.digest.executiveSummary.trim(),
+    plainText(input.digest.executiveSummary),
     "",
   ];
 
   for (const section of input.digest.sections) {
-    lines.push(`## ${escapeMarkdown(section.heading)}`, "");
+    lines.push(`## ${plainText(section.heading)}`, "");
     for (const bullet of section.bullets) {
-      lines.push(`- **[${escapeMarkdown(bullet.title)}](${bullet.url})** - ${bullet.summary.trim()}`);
-      lines.push(`  Source: ${escapeMarkdown(bullet.source)}`);
+      lines.push(
+        `- **[${plainText(bullet.title)}](${safeMarkdownUrl(bullet.url)})** - ${
+          plainText(bullet.summary)
+        }`,
+      );
+      lines.push(`  Source: ${plainText(bullet.source)}`);
     }
     lines.push("");
   }
@@ -39,7 +60,11 @@ export function renderDigestMarkdown(input: {
   if (input.digest.moreLinks?.length) {
     lines.push("## More Links", "");
     for (const link of input.digest.moreLinks) {
-      lines.push(`- [${escapeMarkdown(link.title)}](${link.url}) - ${escapeMarkdown(link.source)}`);
+      lines.push(
+        `- [${plainText(link.title)}](${safeMarkdownUrl(link.url)}) - ${
+          plainText(link.source)
+        }`,
+      );
     }
     lines.push("");
   }
