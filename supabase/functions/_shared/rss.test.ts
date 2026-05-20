@@ -21,6 +21,11 @@ Deno.test("parseFeed extracts feed metadata and normalized items", async () => {
           <description>Fallback description</description>
         </item>
         <item>
+          <title>Relative link title</title>
+          <link>/relative-story?utm_source=rss</link>
+          <description>Relative description</description>
+        </item>
+        <item>
           <link>https://example.com/missing-title</link>
           <description>Skipped because title is missing</description>
         </item>
@@ -30,7 +35,7 @@ Deno.test("parseFeed extracts feed metadata and normalized items", async () => {
 
   assertEquals(feed.feedTitle, "Example Feed");
   assertEquals(feed.siteUrl, "https://example.com");
-  assertEquals(feed.items.length, 2);
+  assertEquals(feed.items.length, 3);
   assertEquals(feed.items[0].feedId, "feed-1");
   assertEquals(feed.items[0].guid, "story-guid");
   assertEquals(feed.items[0].title, "Story title");
@@ -46,6 +51,14 @@ Deno.test("parseFeed extracts feed metadata and normalized items", async () => {
   assertEquals(
     feed.items[1].normalizedUrl,
     "https://fallback.example.com/feed.xml",
+  );
+  assertEquals(
+    feed.items[2].url,
+    "https://fallback.example.com/relative-story?utm_source=rss",
+  );
+  assertEquals(
+    feed.items[2].normalizedUrl,
+    "https://fallback.example.com/relative-story",
   );
 });
 

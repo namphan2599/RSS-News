@@ -134,12 +134,13 @@ async function buildItem(params: {
   descriptionMaxChars: number;
 }): Promise<ParsedFeedItem | null> {
   const title = normalizeBlank(params.title);
-  const url = normalizeBlank(params.itemUrl) ?? normalizeBlank(params.feedUrl);
+  const rawUrl = normalizeBlank(params.itemUrl) ?? normalizeBlank(params.feedUrl);
 
-  if (!title || !url) {
+  if (!title || !rawUrl) {
     return null;
   }
 
+  const url = resolveUrl(rawUrl, params.feedUrl);
   const normalizedUrl = normalizeUrl(url);
   const description = cleanDescription(
     params.rawDescription,
@@ -163,6 +164,14 @@ async function buildItem(params: {
     publishedAt: params.publishedAt,
     url,
   };
+}
+
+function resolveUrl(url: string, baseUrl: string): string {
+  try {
+    return new URL(url, baseUrl).toString();
+  } catch {
+    return url;
+  }
 }
 
 async function parseRssFeed(
