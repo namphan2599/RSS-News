@@ -8,6 +8,17 @@ vi.mock("./api/digestsApi", () => ({
   getDigestMarkdown: vi.fn(),
 }));
 
+vi.mock("./api/feedsApi", () => ({
+  createFeed: vi.fn(),
+  deleteFeed: vi.fn(),
+  listFeeds: vi.fn().mockResolvedValue([]),
+  updateFeed: vi.fn(),
+}));
+
+vi.mock("./api/runsApi", () => ({
+  listRecentRuns: vi.fn().mockResolvedValue([]),
+}));
+
 describe("App", () => {
   it("redirects the root route to the digests page", async () => {
     render(

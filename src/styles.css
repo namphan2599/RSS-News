@@ -134,3 +134,100 @@ input {
     padding: 18px;
   }
 }
+
+.feed-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+  margin-bottom: 18px;
+}
+
+.feed-form input,
+.date-picker input {
+  border: 1px solid #cfc6b6;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.feed-form button,
+.feed-actions button {
+  background: #102820;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.feed-list,
+.run-list {
+  display: grid;
+  gap: 12px;
+}
+
+.feed-row,
+.run-row,
+.settings-panel {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #ddd5c5;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.feed-row p,
+.run-row p {
+  color: #5d665f;
+  margin: 6px 0 0;
+}
+
+.feed-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.error-text {
+  color: #8b2f25;
+}
+
+.status {
+  border-radius: 999px;
+  font-size: 13px;
+  padding: 4px 10px;
+  text-transform: capitalize;
+}
+
+.status-succeeded {
+  background: #dcefd8;
+  color: #245c2d;
+}
+
+.status-partial {
+  background: #fff1c8;
+  color: #715200;
+}
+
+.status-failed {
+  background: #f8d8d4;
+  color: #8b2f25;
+}
+
+.status-running {
+  background: #dce7f5;
+  color: #284e77;
+}
+
+@media (max-width: 900px) {
+  .feed-form {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-row,
+  .run-row {
+    align-items: flex-start;
+    display: grid;
+    gap: 12px;
+  }
+}
