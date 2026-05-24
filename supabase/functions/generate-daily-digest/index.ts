@@ -34,6 +34,8 @@ const source = "generate-daily-digest";
 const feedFetchTimeoutMs = 15_000;
 const maxFeedResponseBytes = 2 * 1024 * 1024;
 const ownerLookupPageSize = 100;
+const candidatePageSize = 100;
+const maxCandidatePages = 25;
 type DigestSupabaseClient = SupabaseClient<any, "public", any>;
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -177,6 +179,43 @@ export function limitCandidatesPerFeed<T extends {
     countsByFeed.set(feedKey, count + 1);
     selected.push(candidate);
     if (selected.length >= maxItems) break;
+  }
+
+  return selected;
+}
+
+export async function collectCandidatesAcrossPages<T extends {
+  feeds: { url: string } | null;
+}>(input: {
+  pageSize: number;
+  maxPages: number;
+  maxItemsPerFeed: number;
+  maxItems: number;
+  fetchPage: (from: number, to: number) => Promise<T[]>;
+}): Promise<T[]> {
+  const countsByFeed = new Map<string, number>();
+  const selected: T[] = [];
+
+  for (let page = 0; page < input.maxPages; page += 1) {
+    const from = page * input.pageSize;
+    const to = from + input.pageSize - 1;
+    const candidates = await input.fetchPage(from, to);
+
+    if (candidates.length === 0) break;
+
+    for (const candidate of candidates) {
+      const feedKey = candidate.feeds?.url ?? `item:${from + selected.length}`;
+      const count = countsByFeed.get(feedKey) ?? 0;
+      if (count >= input.maxItemsPerFeed) continue;
+
+      countsByFeed.set(feedKey, count + 1);
+      selected.push(candidate);
+      if (selected.length >= input.maxItems) break;
+    }
+
+    if (selected.length >= input.maxItems || candidates.length < input.pageSize) {
+      break;
+    }
   }
 
   return selected;
@@ -506,25 +545,28 @@ export async function handleGenerateDailyDigest(request: Request) {
     }
 
     const { start, end } = getLocalDayUtcBounds(targetDate, config.timezone);
-    const { data: candidates, error: candidatesError } = await supabase
-      .from("rss_items")
-      .select(
-        "id,title,description,url,published_at,feeds!inner(title,url,owner_id)",
-      )
-      .gte("fetched_at", start)
-      .lt("fetched_at", end)
-      .eq("feeds.owner_id", owner.id)
-      .order("published_at", { ascending: false, nullsFirst: false })
-      .limit(config.digestMaxItems * Math.max(config.digestMaxItemsPerFeed, 1))
-      .returns<CandidateRow[]>();
+    const limitedCandidates = await collectCandidatesAcrossPages<CandidateRow>({
+      pageSize: candidatePageSize,
+      maxPages: maxCandidatePages,
+      maxItemsPerFeed: config.digestMaxItemsPerFeed,
+      maxItems: config.digestMaxItems,
+      fetchPage: async (from, to) => {
+        const { data: candidates, error: candidatesError } = await supabase
+          .from("rss_items")
+          .select(
+            "id,title,description,url,published_at,feeds!inner(title,url,owner_id)",
+          )
+          .gte("fetched_at", start)
+          .lt("fetched_at", end)
+          .eq("feeds.owner_id", owner.id)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .range(from, to)
+          .returns<CandidateRow[]>();
 
-    if (candidatesError) throw candidatesError;
-
-    const limitedCandidates = limitCandidatesPerFeed(
-      candidates ?? [],
-      config.digestMaxItemsPerFeed,
-      config.digestMaxItems,
-    );
+        if (candidatesError) throw candidatesError;
+        return candidates ?? [];
+      },
+    });
 
     const items: DigestInputItem[] = limitedCandidates.map((item) => ({
       id: item.id,

@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  collectCandidatesAcrossPages,
   getLocalDayUtcBounds,
   limitCandidatesPerFeed,
 } from "./index.ts";
@@ -31,4 +32,33 @@ Deno.test("limitCandidatesPerFeed prevents one feed from dominating candidates",
     limitCandidatesPerFeed(candidates, 2, 4).map((item) => item.id),
     ["1", "2", "3", "5"],
   );
+});
+
+Deno.test("collectCandidatesAcrossPages keeps scanning past a noisy first page", async () => {
+  const pages = [
+    [
+      { id: "a1", feeds: { url: "https://a.example/feed.xml" } },
+      { id: "a2", feeds: { url: "https://a.example/feed.xml" } },
+      { id: "a3", feeds: { url: "https://a.example/feed.xml" } },
+    ],
+    [
+      { id: "b1", feeds: { url: "https://b.example/feed.xml" } },
+      { id: "c1", feeds: { url: "https://c.example/feed.xml" } },
+    ],
+  ];
+  const fetchedRanges: Array<[number, number]> = [];
+
+  const selected = await collectCandidatesAcrossPages({
+    maxItems: 4,
+    maxItemsPerFeed: 1,
+    maxPages: 3,
+    pageSize: 3,
+    fetchPage: (from, to) => {
+      fetchedRanges.push([from, to]);
+      return Promise.resolve(pages.shift() ?? []);
+    },
+  });
+
+  assertEquals(selected.map((item) => item.id), ["a1", "b1", "c1"]);
+  assertEquals(fetchedRanges, [[0, 2], [3, 5]]);
 });
