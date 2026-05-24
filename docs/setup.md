@@ -43,6 +43,18 @@ Apply migrations:
 supabase db push
 ```
 
+## Manual MVP Verification
+
+1. Sign in as the configured owner email.
+2. Add one RSS feed on `/feeds`.
+3. Invoke `generate-daily-digest` with the cron secret.
+4. Confirm `digest_runs` contains a succeeded or partial run.
+5. Confirm `daily_digests` contains one row for the target date.
+6. Confirm Storage bucket `digests` contains `daily/YYYY/MM/YYYY-MM-DD.md`.
+7. Open `/digests`.
+8. Open the generated date and confirm Markdown renders.
+9. Disable the feed and confirm it no longer participates in future runs.
+
 For local verification, start and reset the local Supabase database:
 
 ```bash
