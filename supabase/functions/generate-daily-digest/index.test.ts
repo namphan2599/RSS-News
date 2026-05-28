@@ -2,9 +2,9 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   collectCandidatesAcrossPages,
   getLocalDayUtcBounds,
-  handleGenerateDailyDigest,
   limitCandidatesPerFeed,
-} from "./index.ts";
+} from "../_shared/digestJob.ts";
+import { handleGenerateDailyDigest } from "./index.ts";
 
 Deno.test("getLocalDayUtcBounds converts Asia/Saigon local day to UTC bounds", () => {
   assertEquals(getLocalDayUtcBounds("2026-05-20", "Asia/Saigon"), {
