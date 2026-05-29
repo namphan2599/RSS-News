@@ -1,58 +1,50 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDigestMarkdown } from "./digestsApi";
+import { getDigest } from "./digestsApi";
 
 const mocks = vi.hoisted(() => {
   const single = vi.fn();
   const eq = vi.fn(() => ({ single }));
   const select = vi.fn(() => ({ eq }));
   const fromTable = vi.fn(() => ({ select }));
-  const getPublicUrl = vi.fn();
-  const fetch = vi.fn();
-  const fromStorage = vi.fn(() => ({ getPublicUrl }));
 
-  return { eq, fetch, fromStorage, fromTable, getPublicUrl, select, single };
+  return { eq, fromTable, select, single };
 });
 
 vi.mock("../lib/supabaseClient", () => ({
   supabase: {
     from: mocks.fromTable,
-    storage: {
-      from: mocks.fromStorage,
-    },
   },
 }));
 
-describe("getDigestMarkdown", () => {
+describe("getDigest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("fetch", mocks.fetch);
   });
 
-  it("fetches markdown from the digest public storage URL", async () => {
+  it("fetches a digest summary by date", async () => {
     mocks.single.mockResolvedValue({
       data: {
-        storage_bucket: "digests",
-        storage_path: "daily/2026/05/2026-05-29.md",
+        id: "digest-1",
+        digest_date: "2026-05-29",
+        title: "Daily RSS Digest: 2026-05-29",
+        summary: "Programming\n- Dev updates.",
+        item_count: 2,
+        generated_at: "2026-05-29T12:00:00.000Z",
       },
       error: null,
     });
-    mocks.getPublicUrl.mockReturnValue({
-      data: { publicUrl: "https://example.supabase.co/storage/v1/object/public/digests/daily/2026/05/2026-05-29.md" },
-    });
-    mocks.fetch.mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve("# Daily Digest"),
-    });
 
-    await expect(getDigestMarkdown("2026-05-29")).resolves.toBe("# Daily Digest");
+    await expect(getDigest("2026-05-29")).resolves.toEqual({
+      id: "digest-1",
+      digest_date: "2026-05-29",
+      title: "Daily RSS Digest: 2026-05-29",
+      summary: "Programming\n- Dev updates.",
+      item_count: 2,
+      generated_at: "2026-05-29T12:00:00.000Z",
+    });
 
     expect(mocks.fromTable).toHaveBeenCalledWith("daily_digests");
-    expect(mocks.select).toHaveBeenCalledWith("storage_bucket,storage_path");
+    expect(mocks.select).toHaveBeenCalledWith("id,digest_date,title,summary,item_count,generated_at");
     expect(mocks.eq).toHaveBeenCalledWith("digest_date", "2026-05-29");
-    expect(mocks.fromStorage).toHaveBeenCalledWith("digests");
-    expect(mocks.getPublicUrl).toHaveBeenCalledWith("daily/2026/05/2026-05-29.md");
-    expect(mocks.fetch).toHaveBeenCalledWith(
-      "https://example.supabase.co/storage/v1/object/public/digests/daily/2026/05/2026-05-29.md",
-    );
   });
 });

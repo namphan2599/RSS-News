@@ -6,12 +6,39 @@ type FeedItem = {
   content: string;
 };
 
+type FeedRow = {
+  id: string;
+  title: string | null;
+  url: string;
+  category: string | null;
+};
+
+type SourceFeedItem = FeedItem & {
+  feedId: string;
+  feedTitle: string | null;
+  feedUrl: string;
+  category: string | null;
+};
+
+type FeedFailure = {
+  feed_id: string;
+  feed_url: string;
+  error: string;
+};
+
 type HandlerDeps = {
   createClient: typeof createClient;
   fetch: typeof fetch;
   getEnv: (name: string) => string | undefined | null;
   now?: () => Date;
 };
+
+class SaveDigestError extends Error {
+  constructor(message: string, readonly runId: string) {
+    super(message);
+    this.name = "SaveDigestError";
+  }
+}
 
 const defaultLimit = 10;
 const maxLimit = 25;
@@ -67,35 +94,16 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function digestStoragePath(date: string): string {
-  const [year, month] = date.split("-");
-  return `daily/${year}/${month}/${date}.md`;
+function digestTitle(date: string): string {
+  return `Daily RSS Digest: ${date}`;
 }
 
-function digestTitle(feedUrl: string): string {
-  return `RSS Summary: ${new URL(feedUrl).hostname}`;
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function renderMarkdown(input: {
-  title: string;
-  summary: string;
-  items: FeedItem[];
-}): string {
-  const lines = [
-    `# ${input.title}`,
-    "",
-    input.summary,
-    "",
-    "## Items",
-    "",
-  ];
-
-  for (const item of input.items) {
-    lines.push(`- [${item.title}](${item.url}) - ${item.content}`);
-  }
-
-  lines.push("");
-  return lines.join("\n");
+function failedFeedCount(failures: FeedFailure[]): number {
+  return new Set(failures.map((failure) => failure.feed_id)).size;
 }
 
 function parseRssItem(item: string): FeedItem {
@@ -132,22 +140,30 @@ export function parseFeedItems(xml: string, limit: number): FeedItem[] {
     .slice(0, limit);
 }
 
-function buildPrompt(feedUrl: string, items: FeedItem[]): string {
+function buildPrompt(items: SourceFeedItem[]): string {
+  const promptItems = items.map((item) => ({
+    ...item,
+    markdownLink: `[${item.title}](${item.url})`,
+  }));
+
   return [
-    "Summarize these RSS feed items.",
-    `Feed URL: ${feedUrl}`,
-    "Focus on the main themes and notable items.",
-    "Keep it concise and factual.",
+    "Summarize these RSS items into one daily digest grouped by topic/category.",
+    "Create a short and descriptive paragraph for all topics/categories first",
+    "Use the provided category when present.",
+    "When category is null or empty, infer a concise topic from the feed title and item content.",
+    "Use clear topic headings like Tech, Programming, Games, Food.",
+    "For every news item you mention, include its markdown link using the provided markdownLink value.",
+    "Keep the digest concise and factual.",
+    "Do not mention a news item without a link.",
     "",
-    JSON.stringify(items),
+    JSON.stringify(promptItems),
   ].join("\n");
 }
 
 async function summarizeWithGemini(input: {
   apiKey: string;
   model: string;
-  feedUrl: string;
-  items: FeedItem[];
+  items: SourceFeedItem[];
   fetch: typeof fetch;
 }): Promise<string> {
   const response = await input.fetch(
@@ -160,7 +176,7 @@ async function summarizeWithGemini(input: {
       },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: buildPrompt(input.feedUrl, input.items) }],
+          parts: [{ text: buildPrompt(input.items) }],
         }],
       }),
     },
@@ -180,54 +196,44 @@ async function summarizeWithGemini(input: {
 }
 
 async function saveDigest(input: {
-  deps: HandlerDeps;
-  feedUrl: string;
-  items: FeedItem[];
+  supabase: ReturnType<typeof createClient>;
+  digestDate: string;
+  feedCount: number;
+  failures: FeedFailure[];
+  items: SourceFeedItem[];
   model: string;
+  now: Date;
   ownerId: string;
   summary: string;
-}): Promise<{ digestId: string; runId: string; storagePath: string }> {
-  const now = input.deps.now?.() ?? new Date();
-  const digestDate = formatDate(now);
-  const title = digestTitle(input.feedUrl);
-  const storagePath = digestStoragePath(digestDate);
-  const supabase = input.deps.createClient(
-    requiredEnv(input.deps, "SUPABASE_URL"),
-    requiredEnv(input.deps, "SUPABASE_SERVICE_ROLE_KEY"),
-  );
+}): Promise<{ digestId: string; runId: string; status: "succeeded" | "partial" }> {
+  const title = digestTitle(input.digestDate);
+  const failedCount = failedFeedCount(input.failures);
+  const status = failedCount > 0 ? "partial" : "succeeded";
 
-  const { data: run, error: runError } = await supabase.from("digest_runs")
+  const { data: run, error: runError } = await input.supabase.from("digest_runs")
     .insert({
       owner_id: input.ownerId,
-      run_date: digestDate,
-      status: "succeeded",
-      finished_at: now.toISOString(),
-      feed_count: 1,
+      run_date: input.digestDate,
+      status,
+      finished_at: input.now.toISOString(),
+      feed_count: input.feedCount,
+      failed_feed_count: failedCount,
       item_count: input.items.length,
       selected_item_count: input.items.length,
       ai_provider: "gemini",
       ai_model: input.model,
-      metadata: { feed_url: input.feedUrl },
+      metadata: { failures: input.failures },
     })
     .select("id")
     .single();
   if (runError) throw new Error(runError.message);
 
-  const markdown = renderMarkdown({ title, summary: input.summary, items: input.items });
-  const { error: uploadError } = await supabase.storage
-    .from("digests")
-    .upload(storagePath, markdown, {
-      contentType: "text/markdown",
-      upsert: true,
-    });
-  if (uploadError) throw new Error(uploadError.message);
-
-  const { data: digest, error: digestError } = await supabase.from("daily_digests")
+  const { data: digest, error: digestError } = await input.supabase.from("daily_digests")
     .upsert({
       owner_id: input.ownerId,
-      digest_date: digestDate,
-      storage_bucket: "digests",
-      storage_path: storagePath,
+      digest_date: input.digestDate,
+      storage_bucket: null,
+      storage_path: null,
       title,
       summary: input.summary,
       item_count: input.items.length,
@@ -235,24 +241,63 @@ async function saveDigest(input: {
     }, { onConflict: "owner_id,digest_date" })
     .select("id")
     .single();
-  if (digestError) throw new Error(digestError.message);
+  if (digestError) {
+    await input.supabase.from("digest_runs")
+      .update({
+        status: "failed",
+        error: digestError.message,
+        finished_at: input.now.toISOString(),
+        metadata: { failures: input.failures, save_error: digestError.message },
+      })
+      .eq("id", run.id);
+    throw new SaveDigestError(digestError.message, run.id);
+  }
 
-  return { digestId: digest.id, runId: run.id, storagePath };
+  return { digestId: digest.id, runId: run.id, status };
+}
+
+async function saveFailedRun(input: {
+  supabase: ReturnType<typeof createClient>;
+  digestDate: string;
+  error: string;
+  feedCount: number;
+  failedFeedCount: number;
+  failures: FeedFailure[];
+  itemCount: number;
+  model: string;
+  now: Date;
+  ownerId: string;
+  selectedItemCount: number;
+}): Promise<string | null> {
+  const { data: run, error: runError } = await input.supabase.from("digest_runs")
+    .insert({
+      owner_id: input.ownerId,
+      run_date: input.digestDate,
+      status: "failed",
+      finished_at: input.now.toISOString(),
+      feed_count: input.feedCount,
+      failed_feed_count: input.failedFeedCount,
+      item_count: input.itemCount,
+      selected_item_count: input.selectedItemCount,
+      ai_provider: "gemini",
+      ai_model: input.model,
+      error: input.error,
+      metadata: { failures: input.failures },
+    })
+    .select("id")
+    .single();
+
+  if (runError) return null;
+  return run.id;
 }
 
 export function createRssSummaryHandler(deps: HandlerDeps) {
   return async (request: Request): Promise<Response> => {
     try {
       const url = new URL(request.url);
-      const rawFeedUrl = url.searchParams.get("url");
-      if (!rawFeedUrl) {
-        return jsonResponse({ error: "Missing url query parameter" }, 400);
-      }
-
-      const feedUrl = validateFeedUrl(rawFeedUrl);
       const limit = parseLimit(url.searchParams.get("limit"));
-      const apiKey = deps.getEnv("GEMINI_API_KEY");
-      const model = deps.getEnv("GEMINI_MODEL") ?? "gemini-2.0-flash";
+      const apiKey = deps.getEnv("GEMINI_API_KEY")?.trim();
+      const model = deps.getEnv("GEMINI_MODEL")?.trim() || "gemini-2.0-flash";
 
       if (!apiKey) {
         return jsonResponse({ error: "Missing GEMINI_API_KEY" }, 500);
@@ -262,39 +307,178 @@ export function createRssSummaryHandler(deps: HandlerDeps) {
         return jsonResponse({ error: "Missing OWNER_USER_ID" }, 500);
       }
 
-      const feedResponse = await deps.fetch(feedUrl, {
-        headers: { "User-Agent": "RSS News Summary/0.1" },
-      });
-      if (!feedResponse.ok) {
+      const supabase = deps.createClient(
+        requiredEnv(deps, "SUPABASE_URL"),
+        requiredEnv(deps, "SUPABASE_SERVICE_ROLE_KEY"),
+      );
+      const now = deps.now?.() ?? new Date();
+      const digestDate = formatDate(now);
+      const { data: feeds, error: feedsError } = await supabase
+        .from("feeds")
+        .select("id,title,url,category")
+        .eq("owner_id", ownerId)
+        .eq("is_active", true);
+      if (feedsError) throw new Error(feedsError.message);
+      if (!feeds || feeds.length === 0) {
+        const error = "No active feeds found";
+        const runId = await saveFailedRun({
+          supabase,
+          digestDate,
+          error,
+          feedCount: 0,
+          failedFeedCount: 0,
+          failures: [],
+          itemCount: 0,
+          model,
+          now,
+          ownerId,
+          selectedItemCount: 0,
+        });
         return jsonResponse({
-          error: `RSS request failed with status ${feedResponse.status}`,
+          error,
+          runId,
+          status: "failed",
+          feedCount: 0,
+          failedFeedCount: 0,
+          itemCount: 0,
+        }, 400);
+      }
+
+      const allItems: SourceFeedItem[] = [];
+      const failures: FeedFailure[] = [];
+
+      for (const feed of feeds as FeedRow[]) {
+        try {
+          const feedUrl = validateFeedUrl(feed.url);
+          const feedResponse = await deps.fetch(feedUrl, {
+            headers: { "User-Agent": "RSS News Summary/0.1" },
+          });
+          if (!feedResponse.ok) {
+            throw new Error(`RSS request failed with status ${feedResponse.status}`);
+          }
+
+          const xml = await feedResponse.text();
+          allItems.push(...parseFeedItems(xml, limit).map((item) => ({
+            ...item,
+            feedId: feed.id,
+            feedTitle: feed.title,
+            feedUrl,
+            category: feed.category,
+          })));
+          const { error: updateError } = await supabase.from("feeds")
+            .update({ last_fetched_at: now.toISOString(), last_error: null })
+            .eq("id", feed.id);
+          if (updateError) throw new Error(updateError.message);
+        } catch (error) {
+          const message = errorMessage(error);
+          failures.push({ feed_id: feed.id, feed_url: feed.url, error: message });
+          const { error: updateError } = await supabase.from("feeds")
+            .update({ last_error: message })
+            .eq("id", feed.id);
+          if (updateError) {
+            failures.push({
+              feed_id: feed.id,
+              feed_url: feed.url,
+              error: updateError.message,
+            });
+          }
+        }
+      }
+
+      if (allItems.length === 0) {
+        const error = "No RSS items found";
+        const runId = await saveFailedRun({
+          supabase,
+          digestDate,
+          error,
+          feedCount: feeds.length,
+          failedFeedCount: failedFeedCount(failures),
+          failures,
+          itemCount: 0,
+          model,
+          now,
+          ownerId,
+          selectedItemCount: 0,
+        });
+        return jsonResponse({
+          error,
+          runId,
+          status: "failed",
+          feedCount: feeds.length,
+          failedFeedCount: failedFeedCount(failures),
+          itemCount: 0,
         }, 502);
       }
 
-      const items = parseFeedItems(await feedResponse.text(), limit);
-      if (items.length === 0) {
-        return jsonResponse({ error: "No RSS items found" }, 502);
+      let summary: string;
+      try {
+        summary = await summarizeWithGemini({
+          apiKey,
+          model,
+          items: allItems,
+          fetch: deps.fetch,
+        });
+      } catch (error) {
+        const message = errorMessage(error);
+        const runId = await saveFailedRun({
+          supabase,
+          digestDate,
+          error: message,
+          feedCount: feeds.length,
+          failedFeedCount: failedFeedCount(failures),
+          failures,
+          itemCount: allItems.length,
+          model,
+          now,
+          ownerId,
+          selectedItemCount: allItems.length,
+        });
+        return jsonResponse({
+          error: message,
+          runId,
+          status: "failed",
+          feedCount: feeds.length,
+          failedFeedCount: failedFeedCount(failures),
+          itemCount: allItems.length,
+        }, 502);
+      }
+      let saved: { digestId: string; runId: string; status: "succeeded" | "partial" };
+      try {
+        saved = await saveDigest({
+          supabase,
+          digestDate,
+          feedCount: feeds.length,
+          failures,
+          items: allItems,
+          model,
+          now,
+          ownerId,
+          summary,
+        });
+      } catch (error) {
+        const message = errorMessage(error);
+        const runId = error instanceof SaveDigestError ? error.runId : null;
+        return jsonResponse({
+          error: message,
+          runId,
+          status: "failed",
+          feedCount: feeds.length,
+          failedFeedCount: failedFeedCount(failures),
+          itemCount: allItems.length,
+        }, 500);
       }
 
-      const summary = await summarizeWithGemini({
-        apiKey,
-        model,
-        feedUrl,
-        items,
-        fetch: deps.fetch,
-      });
-      const saved = await saveDigest({
-        deps,
-        feedUrl,
-        items,
-        model,
-        ownerId,
+      return jsonResponse({
+        digestId: saved.digestId,
+        runId: saved.runId,
+        status: saved.status,
+        feedCount: feeds.length,
+        failedFeedCount: failedFeedCount(failures),
+        itemCount: allItems.length,
         summary,
       });
-
-      return jsonResponse({ feedUrl, ...saved, items, summary });
     } catch (error) {
-      return jsonResponse({ error: String(error) }, 400);
+      return jsonResponse({ error: errorMessage(error) }, 500);
     }
   };
 }

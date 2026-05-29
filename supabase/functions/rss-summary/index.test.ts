@@ -1,6 +1,6 @@
 import {
   assertEquals,
-  assertRejects,
+  assertThrows,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   createRssSummaryHandler,
@@ -8,33 +8,78 @@ import {
   validateFeedUrl,
 } from "./index.ts";
 
-function createFakeSupabase(calls: unknown[]) {
+function createFakeSupabase(calls: unknown[], feeds: unknown[]) {
   return {
-    from: (table: string) => ({
-      insert: (row: unknown) => {
-        calls.push({ table, operation: "insert", row });
+    from: (table: string) => {
+      if (table === "feeds") {
         return {
-          select: () => ({
-            single: () => Promise.resolve({ data: { id: "run-1" }, error: null }),
+          select: (columns: string) => ({
+            eq: (column: string, value: unknown) => ({
+              eq: (secondColumn: string, secondValue: unknown) => {
+                calls.push({
+                  table,
+                  operation: "select",
+                  columns,
+                  filters: [[column, value], [secondColumn, secondValue]],
+                });
+                return Promise.resolve({ data: feeds, error: null });
+              },
+            }),
+          }),
+          update: (row: unknown) => ({
+            eq: (column: string, value: unknown) => {
+              calls.push({ table, operation: "update", row, filter: [column, value] });
+              return Promise.resolve({ error: null });
+            },
           }),
         };
-      },
-      upsert: (row: unknown, options: unknown) => {
-        calls.push({ table, operation: "upsert", row, options });
+      }
+
+      if (table === "digest_runs") {
         return {
-          select: () => ({
-            single: () => Promise.resolve({ data: { id: "digest-1" }, error: null }),
+          insert: (row: unknown) => ({
+            select: () => ({
+              single: () => {
+                calls.push({ table, operation: "insert", row });
+                return Promise.resolve({ data: { id: "run-1" }, error: null });
+              },
+            }),
           }),
+          select: () => {
+            throw new Error("unsupported digest_runs select");
+          },
+          update: () => {
+            throw new Error("unsupported digest_runs update");
+          },
+          upsert: () => {
+            throw new Error("unsupported digest_runs upsert");
+          },
         };
-      },
-    }),
-    storage: {
-      from: (bucket: string) => ({
-        upload: (path: string, body: string, options: unknown) => {
-          calls.push({ bucket, operation: "upload", path, body, options });
-          return Promise.resolve({ error: null });
-        },
-      }),
+      }
+
+      if (table === "daily_digests") {
+        return {
+          upsert: (row: unknown, options: unknown) => ({
+            select: () => ({
+              single: () => {
+                calls.push({ table, operation: "upsert", row, options });
+                return Promise.resolve({ data: { id: "digest-1" }, error: null });
+              },
+            }),
+          }),
+          insert: () => {
+            throw new Error("unsupported daily_digests insert");
+          },
+          select: () => {
+            throw new Error("unsupported daily_digests select");
+          },
+          update: () => {
+            throw new Error("unsupported daily_digests update");
+          },
+        };
+      }
+
+      throw new Error(`unsupported table ${table}`);
     },
   };
 }
@@ -70,8 +115,8 @@ Deno.test("validateFeedUrl accepts http and https feed URLs", () => {
 });
 
 Deno.test("validateFeedUrl rejects unsafe feed URLs", () => {
-  assertRejects(
-    () => Promise.resolve(validateFeedUrl("file:///tmp/rss.xml")),
+  assertThrows(
+    () => validateFeedUrl("file:///tmp/rss.xml"),
     Error,
     "url must use http or https",
   );
@@ -97,8 +142,12 @@ Deno.test("parseFeedItems extracts Atom entries", () => {
   ]);
 });
 
-Deno.test("rss summary handler returns Gemini summary", async () => {
+Deno.test("rss summary handler summarizes all active feeds by topic", async () => {
   const calls: unknown[] = [];
+  const feeds = [
+    { id: "feed-1", title: "Dev Feed", url: "https://example.com/rss.xml", category: "Programming" },
+    { id: "feed-2", title: "Game Feed", url: "https://games.example.com/rss.xml", category: null },
+  ];
   const handler = createRssSummaryHandler({
     getEnv: (name) => ({
       GEMINI_API_KEY: "gemini-key",
@@ -106,102 +155,129 @@ Deno.test("rss summary handler returns Gemini summary", async () => {
       SUPABASE_SERVICE_ROLE_KEY: "service-key",
       OWNER_USER_ID: "owner-1",
     })[name] ?? null,
-    createClient: (() => createFakeSupabase(calls)) as never,
+    createClient: (() => createFakeSupabase(calls, feeds)) as never,
     now: () => new Date("2026-05-29T12:00:00.000Z"),
     fetch: (url, init) => {
       if (String(url) === "https://example.com/rss.xml") {
         return Promise.resolve(new Response(rssFeed));
       }
+      if (String(url) === "https://games.example.com/rss.xml") {
+        return Promise.resolve(new Response(atomFeed));
+      }
 
       assertEquals(String(url).includes("generativelanguage.googleapis.com"), true);
       assertEquals(init?.method, "POST");
+      const body = String(init?.body);
+      assertEquals(body.includes("Programming"), true);
+      assertEquals(body.includes("Dev Feed"), true);
+      assertEquals(body.includes("Game Feed"), true);
+      assertEquals(body.includes("First Atom item"), true);
+      assertEquals(body.includes("[First Atom item](https://example.com/atom-first)"), true);
+      assertEquals(body.includes("category"), true);
+      assertEquals(body.includes("infer"), true);
       return Promise.resolve(Response.json({
         candidates: [{
-          content: { parts: [{ text: "Short feed summary." }] },
+          content: { parts: [{ text: "Programming\n- Dev updates.\n\nGames\n- Game updates." }] },
         }],
       }));
     },
   });
 
   const response = await handler(
-    new Request("https://example.com/rss-summary?url=https%3A%2F%2Fexample.com%2Frss.xml&limit=2"),
+    new Request("https://example.com/rss-summary"),
   );
 
   assertEquals(response.status, 200);
   assertEquals(await response.json(), {
-    feedUrl: "https://example.com/rss.xml",
     digestId: "digest-1",
-    items: [
-      {
-        title: "First RSS item",
-        url: "https://example.com/first",
-        content: "First & useful summary",
-      },
-      {
-        title: "Second RSS item",
-        url: "https://example.com/second",
-        content: "Second summary",
-      },
-    ],
     runId: "run-1",
-    summary: "Short feed summary.",
-    storagePath: "daily/2026/05/2026-05-29.md",
+    status: "succeeded",
+    feedCount: 2,
+    failedFeedCount: 0,
+    itemCount: 3,
+    summary: "Programming\n- Dev updates.\n\nGames\n- Game updates.",
   });
-  assertEquals(calls, [
-    {
-      table: "digest_runs",
-      operation: "insert",
-      row: {
-        owner_id: "owner-1",
-        run_date: "2026-05-29",
-        status: "succeeded",
-        finished_at: "2026-05-29T12:00:00.000Z",
-        feed_count: 1,
-        item_count: 2,
-        selected_item_count: 2,
-        ai_provider: "gemini",
-        ai_model: "gemini-2.0-flash",
-        metadata: { feed_url: "https://example.com/rss.xml" },
-      },
-    },
-    {
-      bucket: "digests",
-      operation: "upload",
-      path: "daily/2026/05/2026-05-29.md",
-      body: "# RSS Summary: example.com\n\nShort feed summary.\n\n## Items\n\n- [First RSS item](https://example.com/first) - First & useful summary\n- [Second RSS item](https://example.com/second) - Second summary\n",
-      options: { contentType: "text/markdown", upsert: true },
-    },
-    {
-      table: "daily_digests",
-      operation: "upsert",
-      row: {
-        owner_id: "owner-1",
-        digest_date: "2026-05-29",
-        storage_bucket: "digests",
-        storage_path: "daily/2026/05/2026-05-29.md",
-        title: "RSS Summary: example.com",
-        summary: "Short feed summary.",
-        item_count: 2,
-        run_id: "run-1",
-      },
-      options: { onConflict: "owner_id,digest_date" },
-    },
-  ]);
+  const selectCall = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "feeds" && record.operation === "select";
+  }) as { filters?: unknown } | undefined;
+  assertEquals(selectCall?.filters, [["owner_id", "owner-1"], ["is_active", true]]);
+  assertEquals(calls.some((call) => JSON.stringify(call).includes("upload")), false);
 });
 
-Deno.test("rss summary handler requires url parameter", async () => {
+Deno.test("rss summary handler saves partial digest when one feed fails", async () => {
+  const calls: unknown[] = [];
+  const feeds = [
+    { id: "feed-1", title: "Broken Feed", url: "https://bad.example.com/rss.xml", category: "Programming" },
+    { id: "feed-2", title: "Dev Feed", url: "https://example.com/rss.xml", category: "Programming" },
+  ];
   const handler = createRssSummaryHandler({
-    getEnv: () => "gemini-key",
-    createClient: (() => {
-      throw new Error("client should not be created without url");
-    }) as never,
-    fetch: (() => {
-      throw new Error("fetch should not run without url");
-    }) as typeof fetch,
+    getEnv: (name) => ({
+      GEMINI_API_KEY: "gemini-key",
+      SUPABASE_URL: "https://project.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-key",
+      OWNER_USER_ID: "owner-1",
+    })[name] ?? null,
+    createClient: (() => createFakeSupabase(calls, feeds)) as never,
+    now: () => new Date("2026-05-29T12:00:00.000Z"),
+    fetch: (url, init) => {
+      if (String(url) === "https://bad.example.com/rss.xml") {
+        return Promise.resolve(new Response("server error", { status: 500 }));
+      }
+      if (String(url) === "https://example.com/rss.xml") {
+        return Promise.resolve(new Response(rssFeed));
+      }
+
+      assertEquals(String(url).includes("generativelanguage.googleapis.com"), true);
+      assertEquals(init?.method, "POST");
+      const body = String(init?.body);
+      assertEquals(body.includes("Programming"), true);
+      assertEquals(body.includes("First RSS item"), true);
+      assertEquals(body.includes("[First RSS item](https://example.com/first)"), true);
+      assertEquals(body.includes("First & useful summary"), true);
+      return Promise.resolve(Response.json({
+        candidates: [{ content: { parts: [{ text: "Programming\n- Dev updates." }] } }],
+      }));
+    },
   });
 
   const response = await handler(new Request("https://example.com/rss-summary"));
 
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), { error: "Missing url query parameter" });
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), {
+    digestId: "digest-1",
+    runId: "run-1",
+    status: "partial",
+    feedCount: 2,
+    failedFeedCount: 1,
+    itemCount: 2,
+    summary: "Programming\n- Dev updates.",
+  });
+
+  assertEquals(calls.some((call) => JSON.stringify(call).includes("upload")), false);
+  const digestUpsert = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "daily_digests" && record.operation === "upsert";
+  }) as { row?: Record<string, unknown>; options?: Record<string, unknown> } | undefined;
+  assertEquals(digestUpsert?.row?.storage_bucket, null);
+  assertEquals(digestUpsert?.row?.storage_path, null);
+  assertEquals(digestUpsert?.row?.title, "Daily RSS Digest: 2026-05-29");
+  assertEquals(digestUpsert?.row?.summary, "Programming\n- Dev updates.");
+  assertEquals(digestUpsert?.row?.item_count, 2);
+  assertEquals(digestUpsert?.options?.onConflict, "owner_id,digest_date");
+
+  const failedFeedUpdate = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown; filter?: unknown };
+    return record.table === "feeds" && record.operation === "update" &&
+      JSON.stringify(record.filter) === JSON.stringify(["id", "feed-1"]);
+  }) as { row?: Record<string, unknown> } | undefined;
+  assertEquals(failedFeedUpdate?.row?.last_error, "RSS request failed with status 500");
+
+  const successfulFeedUpdate = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown; filter?: unknown };
+    return record.table === "feeds" && record.operation === "update" &&
+      JSON.stringify(record.filter) === JSON.stringify(["id", "feed-2"]);
+  }) as { row?: Record<string, unknown> } | undefined;
+  assertEquals(successfulFeedUpdate?.row?.last_fetched_at, "2026-05-29T12:00:00.000Z");
+  assertEquals(successfulFeedUpdate?.row?.last_error, null);
 });

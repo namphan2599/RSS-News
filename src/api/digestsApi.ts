@@ -18,20 +18,12 @@ export async function listDigests(): Promise<DailyDigest[]> {
   return data ?? [];
 }
 
-export async function getDigestMarkdown(date: string): Promise<string> {
-  const { data: digest, error: digestError } = await supabase
+export async function getDigest(date: string): Promise<DailyDigest> {
+  const { data, error } = await supabase
     .from("daily_digests")
-    .select("storage_bucket,storage_path")
+    .select("id,digest_date,title,summary,item_count,generated_at")
     .eq("digest_date", date)
     .single();
-  if (digestError) throw digestError;
-
-  const { data } = supabase.storage
-    .from(digest.storage_bucket)
-    .getPublicUrl(digest.storage_path);
-
-  const response = await fetch(data.publicUrl);
-  if (!response.ok) throw new Error(await response.text());
-
-  return response.text();
+  if (error) throw error;
+  return data;
 }

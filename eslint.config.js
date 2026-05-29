@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/", "node_modules/", "*.tsbuildinfo", "vite.config.d.ts", "vite.config.js"]
+    ignores: ["dist/", "node_modules/", "*.tsbuildinfo", "vite.config.d.ts", "vite.config.js", "supabase/functions/**/*.ts"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
