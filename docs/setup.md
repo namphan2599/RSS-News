@@ -18,14 +18,13 @@ Set function secrets:
 npx supabase secrets set APP_OWNER_EMAIL=anomynous992@gmail.com
 npx supabase secrets set APP_TIMEZONE=Asia/Saigon
 npx supabase secrets set AI_PROVIDER=gemini
-npx supabase secrets set GEMINI_MODEL=gemini-2.0-flash
+npx supabase secrets set GEMINI_MODEL=gemma-4-26b-a4b-it
 npx supabase secrets set GEMINI_API_KEY=your-gemini-api-key
 npx supabase secrets set DIGEST_MAX_ITEMS=60
 npx supabase secrets set DIGEST_MAX_ITEMS_PER_FEED=8
 npx supabase secrets set DIGEST_DESCRIPTION_MAX_CHARS=500
 npx supabase secrets set DIGEST_MAX_OUTPUT_TOKENS=2500
 ```
-
 For hosted Supabase Cron SQL settings, configure the project URL used by `pg_net`:
 
 ```sql

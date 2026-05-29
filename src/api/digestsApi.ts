@@ -19,11 +19,19 @@ export async function listDigests(): Promise<DailyDigest[]> {
 }
 
 export async function getDigestMarkdown(date: string): Promise<string> {
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api/digests/${
-      encodeURIComponent(date)
-    }/markdown`,
-  );
+  const { data: digest, error: digestError } = await supabase
+    .from("daily_digests")
+    .select("storage_bucket,storage_path")
+    .eq("digest_date", date)
+    .single();
+  if (digestError) throw digestError;
+
+  const { data } = supabase.storage
+    .from(digest.storage_bucket)
+    .getPublicUrl(digest.storage_path);
+
+  const response = await fetch(data.publicUrl);
   if (!response.ok) throw new Error(await response.text());
+
   return response.text();
 }

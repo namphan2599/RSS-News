@@ -1,11 +1,6 @@
 {
   "tasks": {
-    "test": "deno test --allow-env --allow-net=deno.land,esm.sh,jsr.io",
-    "cron:rss": "deno run --allow-env --allow-net scripts/cron-rss-digest.ts"
-  },
-  "imports": {
-    "fast-xml-parser": "npm:fast-xml-parser@4.4.1",
-    "hono": "jsr:@hono/hono"
+    "test": "deno test --allow-env --allow-net=deno.land,esm.sh,jsr.io,generativelanguage.googleapis.com,www.reddit.com"
   },
   "compilerOptions": {
     "strict": true
