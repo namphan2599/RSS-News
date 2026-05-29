@@ -19,23 +19,20 @@ npx supabase secrets set APP_OWNER_EMAIL=anomynous992@gmail.com
 npx supabase secrets set APP_TIMEZONE=Asia/Saigon
 npx supabase secrets set AI_PROVIDER=gemini
 npx supabase secrets set GEMINI_MODEL=gemini-2.0-flash
-npx supabase secrets set GEMINI_API_KEY=AIzaSyAGVDhN6a7T4KKC1nYHAqUj02GtszH0N5o
-npx supabase secrets set CRON_SECRET=generate-a-long-random-string
+npx supabase secrets set GEMINI_API_KEY=your-gemini-api-key
 npx supabase secrets set DIGEST_MAX_ITEMS=60
 npx supabase secrets set DIGEST_MAX_ITEMS_PER_FEED=8
 npx supabase secrets set DIGEST_DESCRIPTION_MAX_CHARS=500
 npx supabase secrets set DIGEST_MAX_OUTPUT_TOKENS=2500
 ```
 
-For hosted Supabase Cron SQL settings, configure:
+For hosted Supabase Cron SQL settings, configure the project URL used by `pg_net`:
 
 ```sql
-alter database postgres set app.owner_email = 'you@example.com';
 alter database postgres set app.supabase_url = 'https://your-project-ref.supabase.co';
-alter database postgres set app.cron_secret = 'generate-a-long-random-string';
 ```
 
-On hosted Supabase, production cron secrets may be better stored through Supabase Vault where available. The database settings above remain compatible with plans where Vault-backed cron configuration is not available.
+The scheduled Edge Function no longer checks `CRON_SECRET`; `supabase/config.toml` disables JWT verification for the cron wrapper.
 
 Apply migrations:
 
@@ -47,7 +44,7 @@ supabase db push
 
 1. Sign in as the configured owner email.
 2. Add one RSS feed on `/feeds`.
-3. Invoke `generate-daily-digest` with the cron secret.
+3. Run the cron script.
 4. Confirm `digest_runs` contains a succeeded or partial run.
 5. Confirm `daily_digests` contains one row for the target date.
 6. Confirm Storage bucket `digests` contains `daily/YYYY/MM/YYYY-MM-DD.md`.
@@ -61,7 +58,10 @@ For local verification, start and reset the local Supabase database:
 supabase db start
 supabase db reset
 ```
-curl -X POST "https://idmftrpbubhelkhnbkwa.supabase.co/functions/v1/generate-daily-digest" ^
-  -H "x-cron-secret: generate-a-long-random-string" ^
-  -H "Content-Type: application/json" ^
-  -d "{\"date\":\"2026-05-26\"}"
+Run the script-based cron path from `supabase/functions`:
+
+```bash
+deno run --allow-env --allow-net=deno.land,esm.sh,jsr.io,your-project-ref.supabase.co scripts/cron-rss-digest.ts --date 2026-05-26
+```
+
+For external cron, schedule the same command without `--date` so the script uses the configured timezone's current date.

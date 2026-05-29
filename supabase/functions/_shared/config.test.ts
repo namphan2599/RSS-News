@@ -10,7 +10,6 @@ const REQUIRED_ENV = {
   SUPABASE_SERVICE_ROLE_KEY: "service",
   APP_OWNER_EMAIL: "owner@example.com",
   GEMINI_API_KEY: "gemini-key",
-  CRON_SECRET: "secret",
 };
 
 const OPTIONAL_ENV = [
@@ -94,5 +93,15 @@ Deno.test("getConfig validates supported AI provider early", () => {
       Error,
       "AI_PROVIDER must be one of: gemini",
     );
+  });
+});
+
+Deno.test("getConfig does not require unused cron secret", () => {
+  withEnv(() => {
+    Deno.env.delete("CRON_SECRET");
+
+    const config = getConfig();
+
+    assertEquals(config.ownerEmail, "owner@example.com");
   });
 });

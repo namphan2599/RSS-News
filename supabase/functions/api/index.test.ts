@@ -1,5 +1,7 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { createGetDigestApp } from "./index.ts";
+import {
+  assertEquals,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { createApiApp } from "./index.ts";
 
 const testConfig = {
   supabaseUrl: "https://example.supabase.co",
@@ -10,15 +12,14 @@ const testConfig = {
   aiProvider: "gemini",
   geminiModel: "gemini-2.0-flash",
   geminiApiKey: "gemini-key",
-  cronSecret: "cron-secret",
   digestMaxItems: 60,
   digestMaxItemsPerFeed: 8,
   digestDescriptionMaxChars: 500,
   digestMaxOutputTokens: 2500,
 };
 
-Deno.test("get-digest returns markdown without authorization", async () => {
-  const app = createGetDigestApp({
+Deno.test("api returns digest markdown by date", async () => {
+  const app = createApiApp({
     getConfig: () => testConfig,
     createClient: (() => ({
       from: () => ({
@@ -26,13 +27,14 @@ Deno.test("get-digest returns markdown without authorization", async () => {
           eq: () => ({
             order: () => ({
               limit: () => ({
-                maybeSingle: () => Promise.resolve({
-                  data: {
-                    storage_bucket: "digests",
-                    storage_path: "2026-05-27.md",
-                  },
-                  error: null,
-                }),
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: {
+                      storage_bucket: "digests",
+                      storage_path: "2026-05-28.md",
+                    },
+                    error: null,
+                  }),
               }),
             }),
           }),
@@ -40,16 +42,19 @@ Deno.test("get-digest returns markdown without authorization", async () => {
       }),
       storage: {
         from: () => ({
-          download: () => Promise.resolve({
-            data: new Blob(["# Digest"]),
-            error: null,
-          }),
+          download: () =>
+            Promise.resolve({
+              data: new Blob(["# Digest"]),
+              error: null,
+            }),
         }),
       },
     })) as never,
   });
 
-  const response = await app.request("http://localhost/?date=2026-05-27");
+  const response = await app.request(
+    "http://localhost/digests/2026-05-28/markdown",
+  );
 
   assertEquals(response.status, 200);
   assertEquals(
@@ -59,18 +64,18 @@ Deno.test("get-digest returns markdown without authorization", async () => {
   assertEquals(await response.text(), "# Digest");
 });
 
-Deno.test("get-digest rejects invalid date", async () => {
-  const app = createGetDigestApp({
+Deno.test("api rejects invalid digest date", async () => {
+  const app = createApiApp({
     getConfig: () => testConfig,
     createClient: (() => {
       throw new Error("client should not be created for invalid date");
     }) as never,
   });
 
-  const response = await app.request("http://localhost/?date=bad-date");
+  const response = await app.request("http://localhost/digests/bad/markdown");
 
   assertEquals(response.status, 400);
   assertEquals(await response.json(), {
-    error: "Expected date query param in YYYY-MM-DD format",
+    error: "Expected date path param in YYYY-MM-DD format",
   });
 });

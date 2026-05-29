@@ -44,7 +44,7 @@ export class DigestJobError extends Error {
   }
 }
 
-const source = "generate-daily-digest";
+const source = "rss-digest-job";
 const feedFetchTimeoutMs = 15_000;
 const maxFeedResponseBytes = 2 * 1024 * 1024;
 const ownerLookupPageSize = 100;

@@ -7,7 +7,6 @@ export type AppConfig = {
   aiProvider: string;
   geminiModel: string;
   geminiApiKey: string;
-  cronSecret: string;
   digestMaxItems: number;
   digestMaxItemsPerFeed: number;
   digestDescriptionMaxChars: number;
@@ -56,7 +55,6 @@ export function getConfig(): AppConfig {
     aiProvider,
     geminiModel: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.0-flash",
     geminiApiKey: required("GEMINI_API_KEY"),
-    cronSecret: required("CRON_SECRET"),
     digestMaxItems: positiveIntegerEnv("DIGEST_MAX_ITEMS", 60, 500),
     digestMaxItemsPerFeed: positiveIntegerEnv(
       "DIGEST_MAX_ITEMS_PER_FEED",
