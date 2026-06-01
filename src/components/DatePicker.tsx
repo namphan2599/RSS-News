@@ -7,7 +7,6 @@ export function DatePicker({
 }) {
   return (
     <label className="date-picker">
-      Date
       <input type="date" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );

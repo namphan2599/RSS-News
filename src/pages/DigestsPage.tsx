@@ -75,7 +75,7 @@ export function DigestsPage() {
   return (
     <section className="digest-page page-shell">
       <div className="page-kicker">Daily briefing</div>
-      <h1 className="page-title">Daily RSS Digest</h1>
+      <h1 className="page-title">Daily Digest</h1>
       <p className="page-intro">A focused reader for the selected day's feed summary.</p>
 
       <div className="digest-toolbar" aria-label="Digest date controls">
