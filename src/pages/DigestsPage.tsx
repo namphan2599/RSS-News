@@ -73,9 +73,12 @@ export function DigestsPage() {
   const showDigest = !loading && !error && !missingDigest && digest;
 
   return (
-    <section>
-      <h1>Daily Digests</h1>
-      <div className="digest-toolbar">
+    <section className="digest-page page-shell">
+      <div className="page-kicker">Daily briefing</div>
+      <h1 className="page-title">Daily RSS Digest</h1>
+      <p className="page-intro">A focused reader for the selected day's feed summary.</p>
+
+      <div className="digest-toolbar" aria-label="Digest date controls">
         <button type="button" onClick={() => setSelectedDate((value) => shiftDate(value, -1))}>
           Previous
         </button>
@@ -84,17 +87,20 @@ export function DigestsPage() {
         </button>
         <DatePicker value={selectedDate} onChange={(value) => value && setSelectedDate(value)} />
       </div>
-      {loading && <p>Loading digest...</p>}
+
+      {loading && <p className="loading-text">Loading digest...</p>}
       {error && <ErrorNotice message={error} />}
       {!loading && missingDigest && (
         <EmptyState title="No digest for this date" body={`No digest was generated for ${selectedDate}.`} />
       )}
       {showDigest && (
-        <article>
-          <h1>{digest.title}</h1>
-          <p>
-            {digest.digest_date} · {digest.item_count} {digest.item_count === 1 ? "item" : "items"}
-          </p>
+        <article className="digest-article">
+          <header className="digest-header">
+            <p className="digest-meta">
+              {digest.digest_date} · {digest.item_count} {digest.item_count === 1 ? "item" : "items"}
+            </p>
+            <h2>{digest.title}</h2>
+          </header>
           {digest.summary ? (
             <DigestViewer markdown={digest.summary} />
           ) : (

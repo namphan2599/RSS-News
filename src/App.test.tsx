@@ -80,6 +80,8 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
     expect(screen.getByLabelText("Date")).toHaveValue("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
+    expect(screen.getByText("Daily briefing")).toBeInTheDocument();
+    expect(screen.getByText("2026-05-29 · 3 items")).toBeInTheDocument();
   });
 
   it("hides navigation by default and opens it from the menu button", async () => {
