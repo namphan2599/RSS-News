@@ -18,12 +18,12 @@ export async function listDigests(): Promise<DailyDigest[]> {
   return data ?? [];
 }
 
-export async function getDigest(date: string): Promise<DailyDigest> {
+export async function getDigest(date: string): Promise<DailyDigest | null> {
   const { data, error } = await supabase
     .from("daily_digests")
     .select("id,digest_date,title,summary,item_count,generated_at")
     .eq("digest_date", date)
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data;
 }

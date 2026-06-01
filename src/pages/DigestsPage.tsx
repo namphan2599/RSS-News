@@ -50,7 +50,13 @@ export function DigestsPage() {
 
     getDigest(selectedDate)
       .then((nextDigest) => {
-        if (active) setDigest(nextDigest);
+        if (!active) return;
+
+        if (nextDigest) {
+          setDigest(nextDigest);
+        } else {
+          setMissingDigest(true);
+        }
       })
       .catch((err) => {
         if (!active) return;

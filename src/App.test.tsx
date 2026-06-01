@@ -318,7 +318,7 @@ describe("App", () => {
   it("renders a missing digest empty state for no-row digest responses", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-29T08:00:00"));
-    digestsApiMock.getDigest.mockRejectedValue({ code: "PGRST116", message: "Results contain 0 rows" });
+    digestsApiMock.getDigest.mockResolvedValue(null);
 
     render(
       <MemoryRouter

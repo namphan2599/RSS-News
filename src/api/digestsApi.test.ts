@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDigest } from "./digestsApi";
 
 const mocks = vi.hoisted(() => {
-  const single = vi.fn();
-  const eq = vi.fn(() => ({ single }));
+  const maybeSingle = vi.fn();
+  const eq = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq }));
   const fromTable = vi.fn(() => ({ select }));
 
-  return { eq, fromTable, select, single };
+  return { eq, fromTable, maybeSingle, select };
 });
 
 vi.mock("../lib/supabaseClient", () => ({
@@ -22,7 +22,7 @@ describe("getDigest", () => {
   });
 
   it("fetches a digest summary by date", async () => {
-    mocks.single.mockResolvedValue({
+    mocks.maybeSingle.mockResolvedValue({
       data: {
         id: "digest-1",
         digest_date: "2026-05-29",
@@ -46,5 +46,11 @@ describe("getDigest", () => {
     expect(mocks.fromTable).toHaveBeenCalledWith("daily_digests");
     expect(mocks.select).toHaveBeenCalledWith("id,digest_date,title,summary,item_count,generated_at");
     expect(mocks.eq).toHaveBeenCalledWith("digest_date", "2026-05-29");
+  });
+
+  it("returns null when no digest exists for the date", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+    await expect(getDigest("2026-05-30")).resolves.toBeNull();
   });
 });
