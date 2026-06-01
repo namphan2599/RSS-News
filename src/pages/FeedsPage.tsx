@@ -33,8 +33,10 @@ export function FeedsPage() {
   }
 
   return (
-    <section>
-      <h1>Feeds</h1>
+    <section className="page-shell utility-page">
+      <div className="page-kicker">Sources</div>
+      <h1 className="page-title">Feeds</h1>
+      <p className="page-intro">Manage the RSS sources that feed your daily briefing.</p>
       {error && <ErrorNotice message={error} />}
       <FeedForm onSubmit={addFeed} />
       {feeds.length === 0

@@ -29,24 +29,27 @@ export function LoginPage() {
 
   return (
     <section className="login-wrap">
-      <h1>Sign in</h1>
-      <p>Use the owner email configured in Supabase to manage feeds and read digests.</p>
-      {error && <ErrorNotice message={error} />}
-      {sent && (
-        <div className="notice">
-          Magic link sent. Open your email and continue from the login link.
-        </div>
-      )}
-      <form className="login-form" onSubmit={onSubmit}>
-        <input
-          type="email"
-          required
-          placeholder="you@example.com"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <button type="submit">Send magic link</button>
-      </form>
+      <div className="login-card">
+        <div className="page-kicker">Private briefing</div>
+        <h1 className="page-title">Sign in</h1>
+        <p>Use the owner email configured in Supabase to manage feeds and read digests.</p>
+        {error && <ErrorNotice message={error} />}
+        {sent && (
+          <div className="notice">
+            Magic link sent. Open your email and continue from the login link.
+          </div>
+        )}
+        <form className="login-form" onSubmit={onSubmit}>
+          <input
+            type="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <button type="submit">Send magic link</button>
+        </form>
+      </div>
     </section>
   );
 }

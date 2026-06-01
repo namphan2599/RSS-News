@@ -14,8 +14,9 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <section>
-      <h1>Settings</h1>
+    <section className="page-shell utility-page">
+      <div className="page-kicker">Operations</div>
+      <h1 className="page-title">Settings</h1>
       <div className="settings-panel">
         <p>Daily generation runs at 07:00 Asia/Saigon when Supabase Cron is configured.</p>
         <p>AI provider: Gemini</p>
