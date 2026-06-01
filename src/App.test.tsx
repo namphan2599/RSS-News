@@ -42,12 +42,32 @@ vi.mock("./api/runsApi", () => ({
   listRecentRuns: vi.fn().mockResolvedValue([]),
 }));
 
+function mockDigest(date: string, summary: string | null = "## Programming\n\n- Daily updates.") {
+  return {
+    id: `digest-${date}`,
+    digest_date: date,
+    title: `Daily RSS Digest: ${date}`,
+    summary,
+    item_count: 3,
+    generated_at: `${date}T12:00:00.000Z`,
+  };
+}
+
 describe("App", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     digestsApiMock.getDigest.mockReset();
   });
 
-  it("redirects the root route to the digests page", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("opens the root route on today's digest", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
+
     render(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
@@ -57,7 +77,79 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("No digests yet")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-29");
+    expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
+  });
+
+  it("moves between selected dates with previous and next buttons", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockImplementation((date: string) => Promise.resolve(mockDigest(date)));
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-28" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-28");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-29");
+    expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
+    expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-28");
+  });
+
+  it("loads a digest selected with the date picker", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockImplementation((date: string) => Promise.resolve(mockDigest(date)));
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-05-27" } });
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-27" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-27");
+    expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-27");
+  });
+
+  it("renders a missing digest empty state for no-row digest responses", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockRejectedValue({ code: "PGRST116", message: "Results contain 0 rows" });
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("No digest for this date")).toBeInTheDocument();
+    expect(screen.getByText("No digest was generated for 2026-05-29.")).toBeInTheDocument();
   });
 
   it("renders the digest summary for a digest detail route", async () => {

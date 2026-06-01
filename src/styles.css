@@ -107,6 +107,28 @@ input {
   margin: 6px 0 0;
 }
 
+.digest-toolbar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.digest-toolbar button {
+  background: #102820;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.date-picker {
+  display: grid;
+  gap: 6px;
+}
+
 .notice,
 .empty-state {
   background: #ffffff;
