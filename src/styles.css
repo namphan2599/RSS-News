@@ -342,11 +342,11 @@ input:focus {
 }
 
 .markdown {
-  background: var(--color-canvas);
+  /* background: var(--color-canvas); */
   color: var(--color-body);
   line-height: 1.7;
   max-width: 880px;
-  padding: 30px;
+  /* padding: 30px; */
 }
 
 .markdown h1,

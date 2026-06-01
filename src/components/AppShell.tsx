@@ -1,7 +1,6 @@
 import { BookOpen, Menu, Moon, Rss, Settings, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
 
 type Theme = "light" | "dark";
 
@@ -13,7 +12,6 @@ function getInitialTheme(): Theme {
 }
 
 export function AppShell() {
-  const { session, signOut } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
@@ -53,7 +51,6 @@ export function AppShell() {
               <div className="brand">
                 <span aria-hidden="true">*</span> RSS Digest
               </div>
-              <p className="sidebar-user">{session?.user.email ?? "Unknown user"}</p>
             </div>
             <button className="sidebar-close" type="button" aria-label="Close navigation" onClick={closeNav}>
               <X size={18} aria-hidden="true" />
@@ -73,9 +70,6 @@ export function AppShell() {
               Settings
             </NavLink>
           </nav>
-          <button className="sidebar-signout" type="button" onClick={() => void signOut()}>
-            Sign out
-          </button>
         </aside>
       )}
 
