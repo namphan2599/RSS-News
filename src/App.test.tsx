@@ -53,9 +53,31 @@ function mockDigest(date: string, summary: string | null = "## Programming\n\n- 
   };
 }
 
+function mockSystemTheme(prefersDark: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(prefers-color-scheme: dark)" ? prefersDark : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+function getDateInput(value: string) {
+  return document.querySelector(`input[type="date"][value="${value}"]`);
+}
+
 describe("App", () => {
   beforeEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
+    mockSystemTheme(false);
     digestsApiMock.getDigest.mockReset();
   });
 
@@ -78,7 +100,7 @@ describe("App", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-29");
+    expect(getDateInput("2026-05-29")).toHaveValue("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
     expect(screen.getByText("Daily briefing")).toBeInTheDocument();
     expect(screen.getByText("2026-05-29 · 3 items")).toBeInTheDocument();
@@ -176,6 +198,71 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Feeds" })).toBeInTheDocument();
   });
 
+  it("uses system dark theme when no stored theme exists", async () => {
+    mockSystemTheme(true);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
+
+    const { container } = render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
+  });
+
+  it("toggles from light to dark theme and stores the choice", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
+
+    const { container } = render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "light");
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+
+    expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
+    expect(localStorage.getItem("theme")).toBe("dark");
+  });
+
+  it("uses stored dark theme before system light theme", async () => {
+    localStorage.setItem("theme", "dark");
+    mockSystemTheme(false);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
+
+    const { container } = render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "dark");
+    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
+  });
+
   it("moves between selected dates with previous and next buttons", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-29T08:00:00"));
@@ -195,12 +282,12 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-28" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-28");
+    expect(getDateInput("2026-05-28")).toHaveValue("2026-05-28");
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-29");
+    expect(getDateInput("2026-05-29")).toHaveValue("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-28");
   });
@@ -221,10 +308,10 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2026-05-27" } });
+    fireEvent.change(getDateInput("2026-05-29")!, { target: { value: "2026-05-27" } });
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-27" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-27");
+    expect(getDateInput("2026-05-27")).toHaveValue("2026-05-27");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-27");
   });
 
