@@ -6,3 +6,9 @@ vite.config.d.ts
 
 .env
 .superpowers/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
