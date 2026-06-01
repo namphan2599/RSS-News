@@ -371,9 +371,15 @@ input:focus {
   padding: 4px 10px;
 }
 
+.status-succeeded,
 .status-completed {
   background: rgba(93, 184, 114, 0.16);
   color: #2f7a42;
+}
+
+.status-partial {
+  background: rgba(232, 165, 90, 0.18);
+  color: #8c5a17;
 }
 
 .status-failed {
