@@ -2,8 +2,8 @@
   "compilerOptions": {
     "composite": true,
     "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "noEmit": true,
