@@ -205,6 +205,45 @@ Deno.test("rss summary handler summarizes all active feeds by topic", async () =
   assertEquals(calls.some((call) => JSON.stringify(call).includes("upload")), false);
 });
 
+Deno.test("rss summary handler ignores Gemini thought parts", async () => {
+  const calls: unknown[] = [];
+  const feeds = [
+    { id: "feed-1", title: "Dev Feed", url: "https://example.com/rss.xml", category: "Programming" },
+  ];
+  const handler = createRssSummaryHandler({
+    getEnv: (name) => ({
+      GEMINI_API_KEY: "gemini-key",
+      SUPABASE_URL: "https://project.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-key",
+      OWNER_USER_ID: "owner-1",
+    })[name] ?? null,
+    createClient: (() => createFakeSupabase(calls, feeds)) as never,
+    now: () => new Date("2026-05-29T12:00:00.000Z"),
+    fetch: (url) => {
+      if (String(url) === "https://example.com/rss.xml") {
+        return Promise.resolve(new Response(rssFeed));
+      }
+
+      return Promise.resolve(Response.json({
+        candidates: [{
+          content: {
+            parts: [
+              { thought: true, text: "I need to inspect these URLs first." },
+              { text: "Programming\n- [First RSS item](https://example.com/first) update." },
+            ],
+          },
+        }],
+      }));
+    },
+  });
+
+  const response = await handler(new Request("https://example.com/rss-summary"));
+
+  assertEquals(response.status, 200);
+  const body = await response.json();
+  assertEquals(body.summary, "Programming\n- [First RSS item](https://example.com/first) update.");
+});
+
 Deno.test("rss summary handler saves partial digest when one feed fails", async () => {
   const calls: unknown[] = [];
   const feeds = [

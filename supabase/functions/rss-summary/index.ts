@@ -147,14 +147,17 @@ function buildPrompt(items: SourceFeedItem[]): string {
   }));
 
   return [
-    "Summarize these RSS items into one daily digest grouped by topic/category.",
-    "Create a short and descriptive paragraph for all topics/categories first",
+    "Create one daily RSS digest from the items below.",
+    "For each item, visit and read the article at its url before summarizing it; do not rely only on the RSS title or snippet when the full article is accessible.",
+    "Start the digest with one short paragraph summarizing today's most notable stories and cross-topic highlights.",
+    "After the opening paragraph, group the digest by topic/category.",
     "Use the provided category when present.",
-    "When category is null or empty, infer a concise topic from the feed title and item content.",
+    "When category is null or empty, infer a concise topic from the feed title, RSS content, and article content.",
     "Use clear topic headings like Tech, Programming, Games, Food.",
     "For every news item you mention, include its markdown link using the provided markdownLink value.",
-    "Keep the digest concise and factual.",
     "Do not mention a news item without a link.",
+    "If an article url cannot be accessed, use the RSS title/content as fallback and keep that summary conservative.",
+    "Keep the digest concise, factual, and written in Vietnamese.",
     "",
     JSON.stringify(promptItems),
   ].join("\n");
@@ -187,7 +190,10 @@ async function summarizeWithGemini(input: {
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const parts = data?.candidates?.[0]?.content?.parts;
+  const text = Array.isArray(parts)
+    ? parts.find((part) => part?.thought !== true && typeof part?.text === "string" && part.text.trim())?.text
+    : undefined;
   if (typeof text !== "string" || !text.trim()) {
     throw new Error("Gemini response did not include summary text");
   }
