@@ -24,3 +24,6 @@ enable_signup = false
 
 [functions.api]
 verify_jwt = false
+
+[functions.rss-summary]
+verify_jwt = false
