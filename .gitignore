@@ -6,6 +6,7 @@ vite.config.d.ts
 
 .env
 .superpowers/
+.worktrees/
 
 # wrangler files
 .wrangler
