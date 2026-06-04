@@ -205,6 +205,49 @@ Deno.test("rss summary handler summarizes all active feeds by topic", async () =
   assertEquals(calls.some((call) => JSON.stringify(call).includes("upload")), false);
 });
 
+Deno.test("rss summary handler saves digest date in configured local timezone", async () => {
+  const calls: unknown[] = [];
+  const feeds = [
+    { id: "feed-1", title: "Dev Feed", url: "https://example.com/rss.xml", category: "Programming" },
+  ];
+  const handler = createRssSummaryHandler({
+    getEnv: (name) => ({
+      APP_TIMEZONE: "Asia/Saigon",
+      GEMINI_API_KEY: "gemini-key",
+      SUPABASE_URL: "https://project.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "service-key",
+      OWNER_USER_ID: "owner-1",
+    })[name] ?? null,
+    createClient: (() => createFakeSupabase(calls, feeds)) as never,
+    now: () => new Date("2026-05-29T22:00:00.000Z"),
+    fetch: (url) => {
+      if (String(url) === "https://example.com/rss.xml") {
+        return Promise.resolve(new Response(rssFeed));
+      }
+
+      return Promise.resolve(Response.json({
+        candidates: [{ content: { parts: [{ text: "Programming\n- Dev updates." }] } }],
+      }));
+    },
+  });
+
+  const response = await handler(new Request("https://example.com/rss-summary"));
+
+  assertEquals(response.status, 200);
+  const digestUpsert = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "daily_digests" && record.operation === "upsert";
+  }) as { row?: Record<string, unknown> } | undefined;
+  assertEquals(digestUpsert?.row?.digest_date, "2026-05-30");
+  assertEquals(digestUpsert?.row?.title, "Daily RSS Digest: 2026-05-30");
+
+  const runInsert = calls.find((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "digest_runs" && record.operation === "insert";
+  }) as { row?: Record<string, unknown> } | undefined;
+  assertEquals(runInsert?.row?.run_date, "2026-05-30");
+});
+
 Deno.test("rss summary handler ignores Gemini thought parts", async () => {
   const calls: unknown[] = [];
   const feeds = [

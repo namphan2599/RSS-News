@@ -90,8 +90,22 @@ function requiredEnv(deps: HandlerDeps, name: string): string {
   return value;
 }
 
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+function formatDate(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    throw new Error(`Could not format digest date for timezone ${timeZone}`);
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 function digestTitle(date: string): string {
@@ -304,6 +318,7 @@ export function createRssSummaryHandler(deps: HandlerDeps) {
       const limit = parseLimit(url.searchParams.get("limit"));
       const apiKey = deps.getEnv("GEMINI_API_KEY")?.trim();
       const model = deps.getEnv("GEMINI_MODEL")?.trim() || "gemini-2.0-flash";
+      const timeZone = deps.getEnv("APP_TIMEZONE")?.trim() || "Asia/Saigon";
 
       if (!apiKey) {
         return jsonResponse({ error: "Missing GEMINI_API_KEY" }, 500);
@@ -318,7 +333,7 @@ export function createRssSummaryHandler(deps: HandlerDeps) {
         requiredEnv(deps, "SUPABASE_SERVICE_ROLE_KEY"),
       );
       const now = deps.now?.() ?? new Date();
-      const digestDate = formatDate(now);
+      const digestDate = formatDate(now, timeZone);
       const { data: feeds, error: feedsError } = await supabase
         .from("feeds")
         .select("id,title,url,category")
