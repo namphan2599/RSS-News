@@ -13,6 +13,11 @@ const digestsApiMock = vi.hoisted(() => ({
   getDigest: vi.fn(),
 }));
 
+const authMock = vi.hoisted(() => ({
+  session: { user: { email: "owner@example.com" } } as { user: { email: string } } | null,
+  signOut: vi.fn(),
+}));
+
 vi.mock("./components/RequireAuth", () => ({
   RequireAuth: ({ children }: { children: ReactElement }) => children,
 }));
@@ -20,9 +25,10 @@ vi.mock("./components/RequireAuth", () => ({
 vi.mock("./auth/AuthProvider", () => ({
   useAuth: () => ({
     loading: false,
-    session: { user: { email: "owner@example.com" } },
+    session: authMock.session,
     signInWithOtp: vi.fn(),
-    signOut: vi.fn(),
+    signInWithGoogle: vi.fn(),
+    signOut: authMock.signOut,
   }),
 }));
 
@@ -79,6 +85,11 @@ describe("App", () => {
     localStorage.clear();
     mockSystemTheme(false);
     digestsApiMock.getDigest.mockReset();
+    authMock.session = { user: { email: "owner@example.com" } };
+    authMock.signOut.mockReset();
+    authMock.signOut.mockImplementation(async () => {
+      authMock.session = null;
+    });
   });
 
   afterEach(() => {
@@ -106,7 +117,7 @@ describe("App", () => {
     expect(screen.getByText("2026-05-29 · 3 items")).toBeInTheDocument();
   });
 
-  it("hides navigation by default and opens it from the menu button", async () => {
+  it("does not show public navigation controls", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-05-29T08:00:00"));
     digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
@@ -121,81 +132,56 @@ describe("App", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-
-    expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Digests/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Feeds/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Settings/i })).toBeInTheDocument();
-  });
-
-  it("closes navigation with the close button", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
-    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
-
-    render(
-      <MemoryRouter
-        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/"]}
-      >
-        <App />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
-
+    expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
   });
 
-  it("closes navigation with the backdrop", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
-    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
-
+  it("renders the admin page at /admin", async () => {
     render(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/"]}
+        initialEntries={["/admin"]}
       >
         <App />
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close navigation overlay" }));
-
-    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getByText("Manage feeds and check digest health.")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Admin navigation" })).toBeInTheDocument();
+    expect(screen.getByText("owner@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Feeds" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent Runs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
-  it("closes navigation after clicking a nav link", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
-    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
-
+  it("logs out from the admin sidebar", async () => {
     render(
       <MemoryRouter
         future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-        initialEntries={["/"]}
+        initialEntries={["/admin"]}
       >
         <App />
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    fireEvent.click(screen.getByRole("link", { name: /Feeds/i }));
+    await waitFor(() => expect(authMock.signOut).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
 
-    expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Feeds" })).toBeInTheDocument();
+  it("redirects old feed and settings routes to admin", async () => {
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/feeds"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Admin" })).toBeInTheDocument();
   });
 
   it("uses system dark theme when no stored theme exists", async () => {

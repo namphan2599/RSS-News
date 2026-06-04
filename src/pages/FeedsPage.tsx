@@ -27,6 +27,11 @@ export function FeedsPage() {
     await refresh();
   }
 
+  async function saveFeed(feed: Feed, input: { title: string; category: string }) {
+    await updateFeed(feed.id, { title: input.title || null, category: input.category || null });
+    await refresh();
+  }
+
   async function removeFeed(feed: Feed) {
     await deleteFeed(feed.id);
     await refresh();
@@ -41,7 +46,7 @@ export function FeedsPage() {
       <FeedForm onSubmit={addFeed} />
       {feeds.length === 0
         ? <EmptyState title="No feeds" body="Add RSS feeds to create daily digests." />
-        : <FeedList feeds={feeds} onToggle={toggleFeed} onDelete={removeFeed} />}
+        : <FeedList feeds={feeds} onToggle={toggleFeed} onDelete={removeFeed} onUpdate={saveFeed} />}
     </section>
   );
 }

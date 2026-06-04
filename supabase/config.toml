@@ -22,6 +22,12 @@ additional_redirect_urls = ["http://127.0.0.1:5173"]
 jwt_expiry = 3600
 enable_signup = false
 
+[auth.external.google]
+enabled = true
+client_id = "467436388451-m4pniudnik4quq9vr533fmbeaafs8f2n.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false
+
 [functions.api]
 verify_jwt = false
 

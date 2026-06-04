@@ -39,7 +39,7 @@ export async function createFeed(input: {
 
 export async function updateFeed(
   id: string,
-  input: Partial<Pick<Feed, "title" | "category" | "is_active">>,
+  input: Partial<Pick<Feed, "title" | "category" | "is_active" | "url">>,
 ): Promise<void> {
   const { error } = await supabase.from("feeds").update(input).eq("id", id);
   if (error) throw error;

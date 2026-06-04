@@ -6,6 +6,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   signInWithOtp: (email: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -37,6 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       signInWithOtp: async (email: string) => {
         const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) throw error;
+      },
+      signInWithGoogle: async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
         if (error) throw error;
       },
       signOut: async () => {
