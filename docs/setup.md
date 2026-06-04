@@ -33,6 +33,15 @@ alter database postgres set app.supabase_url = 'https://your-project-ref.supabas
 
 The scheduled Edge Function no longer checks `CRON_SECRET`; `supabase/config.toml` disables JWT verification for the cron wrapper.
 
+## Hosted Auth Redirects
+
+In the hosted Supabase project dashboard, open `Authentication > URL Configuration` and set:
+
+- `Site URL` to the public app origin, for example `https://your-app.example.com`
+- `Redirect URLs` to `https://your-app.example.com/admin`, plus any preview or local admin callback URLs you use
+
+Google OAuth and email sign-in both return to `/admin` so Supabase can finish the auth callback before protected routing runs. If the hosted `/admin` callback URL is not allowed in Supabase, login can fall back to localhost or return without a usable session.
+
 Apply migrations:
 
 ```bash
