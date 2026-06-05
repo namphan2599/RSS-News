@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { vi } from "vitest";
@@ -11,6 +12,10 @@ function NavigateButton({ to }: { to: string }) {
 
 const digestsApiMock = vi.hoisted(() => ({
   getDigest: vi.fn(),
+}));
+
+const redditPostsApiMock = vi.hoisted(() => ({
+  listRedditPostSummaries: vi.fn(),
 }));
 
 const authMock = vi.hoisted(() => ({
@@ -46,6 +51,10 @@ vi.mock("./api/feedsApi", () => ({
 
 vi.mock("./api/runsApi", () => ({
   listRecentRuns: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("./api/redditPostsApi", () => ({
+  listRedditPostSummaries: redditPostsApiMock.listRedditPostSummaries,
 }));
 
 function mockDigest(date: string, summary: string | null = "## Programming\n\n- Daily updates.") {
@@ -85,6 +94,8 @@ describe("App", () => {
     localStorage.clear();
     mockSystemTheme(false);
     digestsApiMock.getDigest.mockReset();
+    redditPostsApiMock.listRedditPostSummaries.mockReset();
+    redditPostsApiMock.listRedditPostSummaries.mockResolvedValue([]);
     authMock.session = { user: { email: "owner@example.com" } };
     authMock.signOut.mockReset();
     authMock.signOut.mockImplementation(async () => {
@@ -182,6 +193,85 @@ describe("App", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Admin" })).toBeInTheDocument();
+  });
+
+  it("renders Reddit post list and selected markdown summary", async () => {
+    const user = userEvent.setup();
+
+    redditPostsApiMock.listRedditPostSummaries.mockResolvedValue([
+      {
+        id: "post-1",
+        summary_date: "2026-06-05",
+        subreddit: "programming",
+        title: "First Reddit Post",
+        url: "https://www.reddit.com/r/programming/comments/abc123/first_reddit_post/",
+        summary: "## First summary\n\n- Tóm tắt tiếng Việt.",
+        published_at: "2026-06-05T01:30:00.000Z",
+        fetched_at: "2026-06-05T02:00:00.000Z",
+      },
+      {
+        id: "post-2",
+        summary_date: "2026-06-04",
+        subreddit: "technology",
+        title: "Second Reddit Post",
+        url: "https://www.reddit.com/r/technology/comments/def456/second_reddit_post/",
+        summary: "## Second summary\n\n- Another Vietnamese summary.",
+        published_at: "2026-06-04T03:15:00.000Z",
+        fetched_at: "2026-06-04T04:00:00.000Z",
+      },
+    ]);
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/reddit"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Reddit News" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /First Reddit Post/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Second Reddit Post/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("heading", { name: "First Reddit Post" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "First summary" })).toBeInTheDocument();
+    expect(screen.getByText("Tóm tắt tiếng Việt.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Reddit post" })).toHaveAttribute(
+      "href",
+      "https://www.reddit.com/r/programming/comments/abc123/first_reddit_post/",
+    );
+
+    await user.click(screen.getByRole("button", { name: /Second Reddit Post/ }));
+
+    expect(screen.getByRole("button", { name: /First Reddit Post/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Second Reddit Post/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Second Reddit Post" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Second summary" })).toBeInTheDocument();
+    expect(screen.getByText("Another Vietnamese summary.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Reddit post" })).toHaveAttribute(
+      "href",
+      "https://www.reddit.com/r/technology/comments/def456/second_reddit_post/",
+    );
+  });
+
+  it("renders app shell navigation", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-29T08:00:00"));
+    digestsApiMock.getDigest.mockResolvedValue(mockDigest("2026-05-29"));
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Daily Digest" })).toHaveAttribute("href", "/digests");
+    expect(screen.getByRole("link", { name: "Reddit News" })).toHaveAttribute("href", "/reddit");
+    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
   });
 
   it("uses system dark theme when no stored theme exists", async () => {

@@ -33,3 +33,9 @@ verify_jwt = false
 
 [functions.rss-summary]
 verify_jwt = false
+
+[functions.reddit-rss-test]
+verify_jwt = false
+
+[functions.reddit-summary]
+verify_jwt = false

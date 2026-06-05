@@ -5,6 +5,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { DigestDetailPage } from "./pages/DigestDetailPage";
 import { DigestsPage } from "./pages/DigestsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RedditNewsPage } from "./pages/RedditNewsPage";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/digests" replace />} />
         <Route path="/digests" element={<DigestsPage />} />
         <Route path="/digests/:date" element={<DigestDetailPage />} />
+        <Route path="/reddit" element={<RedditNewsPage />} />
         <Route path="/feeds" element={<Navigate to="/admin" replace />} />
         <Route path="/settings" element={<Navigate to="/admin" replace />} />
         <Route

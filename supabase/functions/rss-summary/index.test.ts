@@ -159,6 +159,8 @@ Deno.test("rss summary handler summarizes all active feeds by topic", async () =
     now: () => new Date("2026-05-29T12:00:00.000Z"),
     fetch: (url, init) => {
       if (String(url) === "https://example.com/rss.xml") {
+        assertEquals((init?.headers as Record<string, string>)["Accept"].includes("application/atom+xml"), true);
+        assertEquals((init?.headers as Record<string, string>)["User-Agent"].includes("Mozilla/5.0"), true);
         return Promise.resolve(new Response(rssFeed));
       }
       if (String(url) === "https://games.example.com/rss.xml") {

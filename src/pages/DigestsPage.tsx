@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getDigest, type DailyDigest } from "../api/digestsApi";
 import { DatePicker } from "../components/DatePicker";
 import { DigestViewer } from "../components/DigestViewer";
@@ -83,6 +84,7 @@ export function DigestsPage() {
       <div className="page-kicker">Daily briefing</div>
       <h1 className="page-title">Daily Digest</h1>
       <p className="page-intro">A focused reader for the selected day's feed summary.</p>
+      <Link className="back-link" to="/reddit">Read Reddit News</Link>
 
       <div className="digest-toolbar" aria-label="Digest date controls">
         <button type="button" onClick={() => setSelectedDate((value) => shiftDate(value, -1))}>

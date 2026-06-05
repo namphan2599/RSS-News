@@ -372,7 +372,12 @@ export function createRssSummaryHandler(deps: HandlerDeps) {
         try {
           const feedUrl = validateFeedUrl(feed.url);
           const feedResponse = await deps.fetch(feedUrl, {
-            headers: { "User-Agent": "RSS News Summary/0.1" },
+            headers: {
+              "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Cache-Control": "no-cache",
+              "User-Agent": "Mozilla/5.0 (compatible; RSS News Summary/0.1; +https://example.com)",
+            },
           });
           if (!feedResponse.ok) {
             throw new Error(`RSS request failed with status ${feedResponse.status}`);
