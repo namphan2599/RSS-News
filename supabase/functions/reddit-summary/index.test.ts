@@ -94,7 +94,7 @@ Deno.test("formatDate formats date in selected timezone", () => {
 function createFakeSupabase(calls: unknown[], feeds: unknown[], existingRows: unknown[] = []) {
   return {
     from: (table: string) => {
-      if (table === "feeds") {
+      if (table === "reddit_feeds") {
         return {
           select: (columns: string) => ({
             eq: (column: string, value: unknown) => ({
@@ -138,8 +138,8 @@ function createFakeSupabase(calls: unknown[], feeds: unknown[], existingRows: un
 Deno.test("reddit summary handler saves new Reddit post summaries", async () => {
   const calls: unknown[] = [];
   const feeds = [
-    { id: "feed-1", title: "Programming", url: "https://www.reddit.com/r/programming/.rss" },
-    { id: "feed-2", title: "Regular", url: "https://example.com/rss.xml" },
+    { id: "feed-1", subreddit: "programming", url: "https://www.reddit.com/r/programming/.rss" },
+    { id: "feed-2", subreddit: "not-reddit", url: "https://example.com/rss.xml" },
   ];
   const handler = createRedditSummaryHandler({
     getEnv: (name) => ({
@@ -191,11 +191,15 @@ Deno.test("reddit summary handler saves new Reddit post summaries", async () => 
   assertEquals(upsert?.rows?.[0]?.summary, "Tóm tắt tiếng Việt.");
   assertEquals(upsert?.rows?.[0]?.summary_date, "2026-06-05");
   assertEquals(upsert?.rows?.[0]?.ai_provider, "gemini");
+  assertEquals(calls.some((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "reddit_feeds" && record.operation === "select";
+  }), true);
 });
 
 Deno.test("reddit summary handler skips existing posts", async () => {
   const calls: unknown[] = [];
-  const feeds = [{ id: "feed-1", title: "Programming", url: "https://www.reddit.com/r/programming/.rss" }];
+  const feeds = [{ id: "feed-1", subreddit: "programming", url: "https://www.reddit.com/r/programming/.rss" }];
   const handler = createRedditSummaryHandler({
     getEnv: (name) => ({
       GEMINI_API_KEY: "gemini-key",
@@ -223,8 +227,8 @@ Deno.test("reddit summary handler skips existing posts", async () => {
 Deno.test("reddit summary handler continues when one reddit feed fails", async () => {
   const calls: unknown[] = [];
   const feeds = [
-    { id: "feed-1", title: "Broken", url: "https://www.reddit.com/r/broken/.rss" },
-    { id: "feed-2", title: "Programming", url: "https://www.reddit.com/r/programming/.rss" },
+    { id: "feed-1", subreddit: "broken", url: "https://www.reddit.com/r/broken/.rss" },
+    { id: "feed-2", subreddit: "programming", url: "https://www.reddit.com/r/programming/.rss" },
   ];
   const handler = createRedditSummaryHandler({
     getEnv: (name) => ({
@@ -251,4 +255,8 @@ Deno.test("reddit summary handler continues when one reddit feed fails", async (
   assertEquals(body.failedFeedCount, 1);
   assertEquals(body.postsSummarized, 2);
   assertEquals(body.failures[0].feed_id, "feed-1");
+  assertEquals(calls.some((call) => {
+    const record = call as { table?: unknown; operation?: unknown };
+    return record.table === "reddit_feeds" && record.operation === "update";
+  }), true);
 });

@@ -22,7 +22,7 @@ type HandlerDeps = {
 
 type FeedRow = {
   id: string;
-  title: string | null;
+  subreddit: string;
   url: string;
 };
 
@@ -265,8 +265,8 @@ export function createRedditSummaryHandler(deps: HandlerDeps) {
       const now = deps.now?.() ?? new Date();
 
       const { data: feeds, error: feedsError } = await supabase
-        .from("feeds")
-        .select("id,title,url")
+        .from("reddit_feeds")
+        .select("id,subreddit,url")
         .eq("owner_id", ownerId)
         .eq("is_active", true);
       if (feedsError) throw new Error(feedsError.message);
@@ -353,14 +353,14 @@ export function createRedditSummaryHandler(deps: HandlerDeps) {
             postsSummarized += 1;
           }
 
-          const { error: updateError } = await supabase.from("feeds")
+          const { error: updateError } = await supabase.from("reddit_feeds")
             .update({ last_fetched_at: now.toISOString(), last_error: null })
             .eq("id", feed.id);
           if (updateError) throw new Error(updateError.message);
         } catch (error) {
           const message = errorMessage(error);
           failures.push({ feed_id: feed.id, feed_url: feed.url, error: message });
-          const { error: updateError } = await supabase.from("feeds")
+          const { error: updateError } = await supabase.from("reddit_feeds")
             .update({ last_error: message })
             .eq("id", feed.id);
           if (updateError) {
