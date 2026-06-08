@@ -16,6 +16,7 @@ const digestsApiMock = vi.hoisted(() => ({
 
 const redditPostsApiMock = vi.hoisted(() => ({
   listRedditPostSummaries: vi.fn(),
+  listRedditPostSummariesByDate: vi.fn(),
 }));
 
 const authMock = vi.hoisted(() => ({
@@ -55,6 +56,7 @@ vi.mock("./api/runsApi", () => ({
 
 vi.mock("./api/redditPostsApi", () => ({
   listRedditPostSummaries: redditPostsApiMock.listRedditPostSummaries,
+  listRedditPostSummariesByDate: redditPostsApiMock.listRedditPostSummariesByDate,
 }));
 
 function mockDigest(date: string, summary: string | null = "## Programming\n\n- Daily updates.") {
@@ -96,6 +98,8 @@ describe("App", () => {
     digestsApiMock.getDigest.mockReset();
     redditPostsApiMock.listRedditPostSummaries.mockReset();
     redditPostsApiMock.listRedditPostSummaries.mockResolvedValue([]);
+    redditPostsApiMock.listRedditPostSummariesByDate.mockReset();
+    redditPostsApiMock.listRedditPostSummariesByDate.mockResolvedValue([]);
     authMock.session = { user: { email: "owner@example.com" } };
     authMock.signOut.mockReset();
     authMock.signOut.mockImplementation(async () => {
@@ -121,11 +125,12 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(getDateInput("2026-05-29")).toHaveValue("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
-    expect(screen.getByText("Daily briefing")).toBeInTheDocument();
-    expect(screen.getByText("2026-05-29 · 3 items")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Daily Digest" })).not.toBeInTheDocument();
+    expect(screen.queryByText("A focused reader for the selected day's feed summary.")).not.toBeInTheDocument();
+    expect(screen.queryByText("2026-05-29 · 3 items")).not.toBeInTheDocument();
   });
 
   it("does not show public navigation controls", async () => {
@@ -142,7 +147,7 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument();
   });
@@ -198,7 +203,7 @@ describe("App", () => {
   it("renders Reddit post list and selected markdown summary", async () => {
     const user = userEvent.setup();
 
-    redditPostsApiMock.listRedditPostSummaries.mockResolvedValue([
+    redditPostsApiMock.listRedditPostSummariesByDate.mockResolvedValue([
       {
         id: "post-1",
         summary_date: "2026-06-05",
@@ -230,7 +235,15 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Reddit News" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "First Reddit Post" })).toBeInTheDocument();
+    expect(redditPostsApiMock.listRedditPostSummariesByDate).toHaveBeenCalledWith("2026-06-08");
+    expect(await screen.findByRole("heading", { name: "2026-06-05" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "2026-06-04" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "App navigation" })).toContainElement(
+      screen.getByRole("button", { name: /First Reddit Post/ }),
+    );
+    expect(screen.queryByRole("complementary", { name: "Reddit posts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Back to Daily Digest" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /First Reddit Post/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Second Reddit Post/ })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("heading", { name: "First Reddit Post" })).toBeInTheDocument();
@@ -268,10 +281,86 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Daily Digest" })).toHaveAttribute("href", "/digests");
-    expect(screen.getByRole("link", { name: "Reddit News" })).toHaveAttribute("href", "/reddit");
-    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Digest" })).toHaveAttribute("href", "/digests/2026-05-29");
+    expect(screen.getByRole("link", { name: "Digest" })).toHaveClass("is-active");
+    expect(screen.getByRole("link", { name: "Reddit" })).toHaveAttribute("href", "/reddit");
+    expect(screen.getByRole("link", { name: "Reddit" })).not.toHaveClass("is-active");
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
+    expect(getDateInput("2026-05-29")).toHaveValue("2026-05-29");
+    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toHaveClass("theme-toggle-button");
+    expect(screen.getByRole("complementary", { name: "App navigation" })).not.toContainElement(
+      screen.getByRole("button", { name: "Switch to dark theme" }),
+    );
+  });
+
+  it("renders Reddit content without page header chrome", async () => {
+    redditPostsApiMock.listRedditPostSummariesByDate.mockResolvedValue([
+      {
+        id: "post-1",
+        summary_date: "2026-06-05",
+        subreddit: "programming",
+        title: "First Reddit Post",
+        url: "https://www.reddit.com/r/programming/comments/abc123/first_reddit_post/",
+        summary: "## First summary\n\n- Tóm tắt tiếng Việt.",
+        published_at: "2026-06-05T01:30:00.000Z",
+        fetched_at: "2026-06-05T02:00:00.000Z",
+      },
+    ]);
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/reddit"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "First Reddit Post" })).toBeInTheDocument();
+    expect(screen.queryByText("Reddit briefing")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Reddit News" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Vietnamese summaries from configured Reddit RSS feeds.")).not.toBeInTheDocument();
+  });
+
+  it("loads Reddit posts by selected date with previous and next controls", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-08T08:00:00"));
+    redditPostsApiMock.listRedditPostSummariesByDate.mockImplementation((date: string) => Promise.resolve([
+      {
+        id: `post-${date}`,
+        summary_date: date,
+        subreddit: "programming",
+        title: `Reddit Post ${date}`,
+        url: `https://www.reddit.com/r/programming/comments/${date}/post/`,
+        summary: `## Summary ${date}\n\n- Update for ${date}.`,
+        published_at: `${date}T01:30:00.000Z`,
+        fetched_at: `${date}T02:00:00.000Z`,
+      },
+    ]));
+
+    render(
+      <MemoryRouter
+        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        initialEntries={["/reddit"]}
+      >
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Reddit Post 2026-06-08" })).toBeInTheDocument();
+    expect(getDateInput("2026-06-08")).toHaveValue("2026-06-08");
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+
+    expect(await screen.findByRole("heading", { name: "Reddit Post 2026-06-07" })).toBeInTheDocument();
+    expect(getDateInput("2026-06-07")).toHaveValue("2026-06-07");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("heading", { name: "Reddit Post 2026-06-08" })).toBeInTheDocument();
+    expect(redditPostsApiMock.listRedditPostSummariesByDate).toHaveBeenCalledWith("2026-06-08");
+    expect(redditPostsApiMock.listRedditPostSummariesByDate).toHaveBeenCalledWith("2026-06-07");
   });
 
   it("uses system dark theme when no stored theme exists", async () => {
@@ -289,7 +378,7 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "dark");
     expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
   });
@@ -308,7 +397,7 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "light");
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
@@ -334,7 +423,7 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(container.querySelector(".app-shell")).toHaveAttribute("data-theme", "dark");
     expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
   });
@@ -353,16 +442,16 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-28" })).toBeInTheDocument();
+    await waitFor(() => expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-28"));
     expect(getDateInput("2026-05-28")).toHaveValue("2026-05-28");
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    await waitFor(() => expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29"));
     expect(getDateInput("2026-05-29")).toHaveValue("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-28");
@@ -382,11 +471,11 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
 
     fireEvent.change(getDateInput("2026-05-29")!, { target: { value: "2026-05-27" } });
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-27" })).toBeInTheDocument();
+    await waitFor(() => expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-27"));
     expect(getDateInput("2026-05-27")).toHaveValue("2026-05-27");
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-27");
   });
@@ -428,8 +517,9 @@ describe("App", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
-    expect(screen.getByText("2026-05-29")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Programming" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Daily RSS Digest: 2026-05-29" })).toBeInTheDocument();
+    expect(screen.queryByText("2026-05-29 · 3 items")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Programming" })).toBeInTheDocument();
     expect(screen.getByText("Programming updates for the day.")).toBeInTheDocument();
     expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29");
@@ -467,7 +557,7 @@ describe("App", () => {
     await waitFor(() => expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-29"));
     fireEvent.click(screen.getByRole("button", { name: "Navigate" }));
 
-    expect(await screen.findByRole("heading", { name: "Daily RSS Digest: 2026-05-30" })).toBeInTheDocument();
+    await waitFor(() => expect(digestsApiMock.getDigest).toHaveBeenCalledWith("2026-05-30"));
 
     resolveOldDigest({
       id: "digest-1",

@@ -91,9 +91,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: auto;
   padding: 32px 28px;
   position: sticky;
+  scrollbar-color: var(--color-primary) transparent;
+  scrollbar-width: thin;
   top: 0;
 }
 
@@ -125,7 +128,7 @@ button {
 }
 
 .shell-nav a,
-.theme-button {
+.theme-toggle-button {
   align-items: center;
   background: var(--color-card);
   border: 1px solid var(--color-hairline);
@@ -141,17 +144,97 @@ button {
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
+.view-tabs {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: 999px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+}
+
+.shell-nav .view-tab {
+  background: transparent;
+  border: 0;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.shell-nav .view-tab:hover,
+.shell-nav .view-tab.is-active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.sidebar-date-controls {
+  background: var(--color-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.sidebar-reddit-posts {
+  /* background: var(--color-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: 16px; */
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 290px);
+  overflow: auto;
+  /* padding: 14px; */
+  scrollbar-color: var(--color-primary) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-control-label {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+
+.sidebar-date-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.sidebar-date-actions button {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  color: var(--color-ink);
+  padding: 10px 12px;
+}
+
+.sidebar-date-actions button + button {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
 .shell-nav a:hover,
 .shell-nav a.active,
-.theme-button:hover {
+.theme-toggle-button:hover {
   background: var(--color-canvas);
   border-color: var(--color-primary);
 }
 
-.theme-button {
+.theme-toggle-button {
+  border-radius: 50%;
+  height: 44px;
   justify-content: center;
-  margin-top: auto;
-  width: 100%;
+  padding: 0;
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  width: 44px;
+  z-index: 20;
 }
 
 .main-panel {
@@ -262,10 +345,21 @@ input:focus {
 
 .loading-text,
 .digest-meta,
+.reader-title,
 .digest-row p,
 .feed-row p,
 .run-row p {
   color: var(--color-muted);
+}
+
+.reader-title {
+  color: var(--color-ink);
+  font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+  font-size: clamp(34px, 5vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  margin: 0 0 24px;
 }
 
 .digest-article,
@@ -605,6 +699,24 @@ input:focus {
   gap: 10px;
 }
 
+.reddit-date-group {
+  display: grid;
+  gap: 8px;
+}
+
+.reddit-date-heading {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  margin: 10px 0 0;
+  text-transform: uppercase;
+}
+
+.reddit-date-group:first-child .reddit-date-heading {
+  margin-top: 0;
+}
+
 .reddit-post-item {
   background: transparent;
   border: 1px solid transparent;
@@ -694,7 +806,9 @@ input:focus {
     background: linear-gradient(to bottom, var(--color-canvas) 70%, transparent);
     border-right: 0;
     gap: 18px;
+    height: auto;
     min-height: auto;
+    overflow: visible;
     padding: 20px 18px 0;
     position: static;
   }
@@ -716,10 +830,9 @@ input:focus {
     padding: 8px 12px;
   }
 
-  .theme-button {
-    align-self: flex-start;
-    margin-top: 0;
-    width: auto;
+  .theme-toggle-button {
+    right: 16px;
+    top: 16px;
   }
 
   .main-panel {
