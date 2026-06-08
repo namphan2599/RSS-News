@@ -164,6 +164,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Admin" })).toBeInTheDocument();
     expect(screen.getByText("Manage feeds and check digest health.")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "App navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Admin navigation" })).toBeInTheDocument();
     expect(screen.getByText("owner@example.com")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Feeds" })).toBeInTheDocument();

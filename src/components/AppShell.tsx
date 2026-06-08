@@ -66,6 +66,7 @@ export function AppShell() {
   const [selectedRedditPostId, setSelectedRedditPostId] = useState<string | null>(null);
   const [redditError, setRedditError] = useState<string | null>(null);
   const [redditLoading, setRedditLoading] = useState(false);
+  const isAdminView = location.pathname.startsWith("/admin");
   const isDigestView = location.pathname === "/" || location.pathname.startsWith("/digests");
   const isRedditView = location.pathname.startsWith("/reddit");
 
@@ -137,7 +138,8 @@ export function AppShell() {
         {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
       </button>
 
-      <div className="shell-frame">
+      <div className={`shell-frame${isAdminView ? " shell-frame-admin" : ""}`}>
+        {!isAdminView && (
         <aside className="shell-sidebar" aria-label="App navigation">
           <div className="shell-brand">
             <span className="shell-brand-kicker">AI briefing</span>
@@ -225,6 +227,7 @@ export function AppShell() {
           )}
 
         </aside>
+        )}
 
         <main className="main-panel">
           <Outlet
