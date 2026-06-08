@@ -50,6 +50,13 @@ vi.mock("./api/feedsApi", () => ({
   updateFeed: vi.fn(),
 }));
 
+vi.mock("./api/redditFeedsApi", () => ({
+  createRedditFeed: vi.fn(),
+  deleteRedditFeed: vi.fn(),
+  listRedditFeeds: vi.fn().mockResolvedValue([]),
+  updateRedditFeed: vi.fn(),
+}));
+
 vi.mock("./api/runsApi", () => ({
   listRecentRuns: vi.fn().mockResolvedValue([]),
 }));
@@ -167,7 +174,19 @@ describe("App", () => {
     expect(screen.queryByRole("complementary", { name: "App navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Admin navigation" })).toBeInTheDocument();
     expect(screen.getByText("owner@example.com")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Feeds" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sources" })).toHaveAttribute("href", "#sources");
+    expect(screen.getByRole("heading", { name: "Sources" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "RSS Feeds" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Reddit Subs" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByPlaceholderText("RSS URL")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Subreddit")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Reddit Subs" }));
+
+    expect(screen.getByRole("tab", { name: "RSS Feeds" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("tab", { name: "Reddit Subs" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByPlaceholderText("Subreddit")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("RSS URL")) .not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent Runs" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
