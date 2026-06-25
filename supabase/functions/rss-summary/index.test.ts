@@ -177,6 +177,9 @@ Deno.test("rss summary handler summarizes all active feeds by topic", async () =
       assertEquals(body.includes("[First Atom item](https://example.com/atom-first)"), true);
       assertEquals(body.includes("category"), true);
       assertEquals(body.includes("infer"), true);
+      assertEquals(body.includes("include exactly one bullet under its topic heading"), true);
+      assertEquals(body.includes("- {markdownLink}: {one concise Vietnamese summary sentence}"), true);
+      assertEquals(body.includes("same bullet structure for every post"), true);
       return Promise.resolve(Response.json({
         candidates: [{
           content: { parts: [{ text: "Programming\n- Dev updates.\n\nGames\n- Game updates." }] },

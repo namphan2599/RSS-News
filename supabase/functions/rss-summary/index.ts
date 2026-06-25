@@ -157,7 +157,7 @@ export function parseFeedItems(xml: string, limit: number): FeedItem[] {
 function buildPrompt(items: SourceFeedItem[]): string {
   const promptItems = items.map((item) => ({
     ...item,
-    markdownLink: `[${item.title}](${item.url})`,
+    shortLink: `[📰](${item.url})`,
   }));
 
   return [
@@ -168,7 +168,9 @@ function buildPrompt(items: SourceFeedItem[]): string {
     "Use the provided category when present.",
     "When category is null or empty, infer a concise topic from the feed title, RSS content, and article content.",
     "Use clear topic headings like Tech, Programming, Games, Food.",
-    "For every news item you mention, include its markdown link using the provided markdownLink value.",
+    "For every input item, include exactly one bullet under its topic heading using this same format: - {one concise Vietnamese summary sentence}. {shortLink}",
+    "Use the provided shortLink value for {shortLink} - it is a compact icon link, do not replace it with the title or full URL.",
+    "Do not use sub-bullets, numbered lists, labels, or a different format for individual posts.",
     "Do not mention a news item without a link.",
     "If an article url cannot be accessed, use the RSS title/content as fallback and keep that summary conservative.",
     "Keep the digest concise, factual, and written in Vietnamese.",
