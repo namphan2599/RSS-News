@@ -7,14 +7,13 @@ where jobname = 'generate-daily-rss-digest';
 
 select cron.schedule(
   'generate-daily-rss-digest',
-  '0 0 * * *',
+  '0 */3 * * *',
   $$
   select
     net.http_post(
       url := current_setting('app.supabase_url') || '/functions/v1/generate-daily-digest',
       headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+        'Content-Type', 'application/json'
       ),
       body := jsonb_build_object('source', 'cron')
     );

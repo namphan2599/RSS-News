@@ -19,15 +19,10 @@ export async function listDigests(): Promise<DailyDigest[]> {
 }
 
 export async function getDigestMarkdown(date: string): Promise<string> {
-  const { data: session } = await supabase.auth.getSession();
-  const token = session.session?.access_token;
-  if (!token) throw new Error("Sign in before reading digests");
-
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-digest?date=${
       encodeURIComponent(date)
     }`,
-    { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!response.ok) throw new Error(await response.text());
   return response.text();

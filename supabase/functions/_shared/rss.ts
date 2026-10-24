@@ -1,4 +1,4 @@
-import { XMLParser } from "fast-xml-parser";
+import { XMLParser } from "npm:fast-xml-parser@4.4.1";
 import { cleanDescription } from "./html.ts";
 import { buildContentHash, normalizeUrl } from "./urls.ts";
 

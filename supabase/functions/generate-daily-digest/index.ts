@@ -377,12 +377,6 @@ async function deleteDigestLock(
 
 export async function handleGenerateDailyDigest(request: Request) {
   const config = getConfig();
-  const authHeader = request.headers.get("authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-
-  if (token !== config.cronSecret) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
 
   const body = await request.json().catch(() => ({}));
   const targetDate = typeof body.date === "string"

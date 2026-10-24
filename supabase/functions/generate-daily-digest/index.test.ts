@@ -2,6 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   collectCandidatesAcrossPages,
   getLocalDayUtcBounds,
+  handleGenerateDailyDigest,
   limitCandidatesPerFeed,
 } from "./index.ts";
 
@@ -61,4 +62,15 @@ Deno.test("collectCandidatesAcrossPages keeps scanning past a noisy first page",
 
   assertEquals(selected.map((item) => item.id), ["a1", "b1", "c1"]);
   assertEquals(fetchedRanges, [[0, 2], [3, 5]]);
+});
+
+Deno.test("generate-daily-digest handler does not reject missing cron secret", async () => {
+  const response = await handleGenerateDailyDigest(new Request("http://localhost/", {
+    method: "POST",
+    body: JSON.stringify({ date: "not-a-date" }),
+    headers: { "Content-Type": "application/json" },
+  }));
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { error: "date must use YYYY-MM-DD" });
 });

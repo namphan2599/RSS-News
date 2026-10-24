@@ -3,7 +3,8 @@
     "test": "deno test --allow-env --allow-net=deno.land,esm.sh"
   },
   "imports": {
-    "fast-xml-parser": "npm:fast-xml-parser@4.4.1"
+    "fast-xml-parser": "npm:fast-xml-parser@4.4.1",
+    "hono": "jsr:@hono/hono"
   },
   "compilerOptions": {
     "strict": true

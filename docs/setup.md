@@ -15,16 +15,16 @@ Copy `.env.example` to `.env.local` for frontend development.
 Set function secrets:
 
 ```bash
-supabase secrets set APP_OWNER_EMAIL=you@example.com
-supabase secrets set APP_TIMEZONE=Asia/Saigon
-supabase secrets set AI_PROVIDER=gemini
-supabase secrets set GEMINI_MODEL=gemini-2.0-flash
-supabase secrets set GEMINI_API_KEY=your-gemini-key
-supabase secrets set CRON_SECRET=generate-a-long-random-string
-supabase secrets set DIGEST_MAX_ITEMS=60
-supabase secrets set DIGEST_MAX_ITEMS_PER_FEED=8
-supabase secrets set DIGEST_DESCRIPTION_MAX_CHARS=500
-supabase secrets set DIGEST_MAX_OUTPUT_TOKENS=2500
+npx supabase secrets set APP_OWNER_EMAIL=anomynous992@gmail.com
+npx supabase secrets set APP_TIMEZONE=Asia/Saigon
+npx supabase secrets set AI_PROVIDER=gemini
+npx supabase secrets set GEMINI_MODEL=gemini-2.0-flash
+npx supabase secrets set GEMINI_API_KEY=AIzaSyAGVDhN6a7T4KKC1nYHAqUj02GtszH0N5o
+npx supabase secrets set CRON_SECRET=generate-a-long-random-string
+npx supabase secrets set DIGEST_MAX_ITEMS=60
+npx supabase secrets set DIGEST_MAX_ITEMS_PER_FEED=8
+npx supabase secrets set DIGEST_DESCRIPTION_MAX_CHARS=500
+npx supabase secrets set DIGEST_MAX_OUTPUT_TOKENS=2500
 ```
 
 For hosted Supabase Cron SQL settings, configure:
@@ -61,3 +61,7 @@ For local verification, start and reset the local Supabase database:
 supabase db start
 supabase db reset
 ```
+curl -X POST "https://idmftrpbubhelkhnbkwa.supabase.co/functions/v1/generate-daily-digest" ^
+  -H "x-cron-secret: generate-a-long-random-string" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"date\":\"2026-05-26\"}"

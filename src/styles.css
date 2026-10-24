@@ -37,7 +37,28 @@ input {
 .brand {
   font-size: 20px;
   font-weight: 700;
-  margin-bottom: 28px;
+  margin-bottom: 8px;
+}
+
+.sidebar-user {
+  color: rgba(248, 244, 233, 0.8);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+.sidebar-signout {
+  background: transparent;
+  border: 1px solid rgba(248, 244, 233, 0.35);
+  border-radius: 8px;
+  color: #f8f4e9;
+  cursor: pointer;
+  margin-top: 16px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.sidebar-signout:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .sidebar nav {
@@ -92,6 +113,33 @@ input {
   border: 1px solid #ddd5c5;
   border-radius: 8px;
   padding: 18px;
+}
+
+.login-wrap {
+  margin: 64px auto;
+  max-width: 520px;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto;
+  margin-top: 14px;
+}
+
+.login-form input {
+  border: 1px solid #cfc6b6;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.login-form button {
+  background: #102820;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 10px 12px;
 }
 
 .notice-error {
@@ -229,5 +277,13 @@ input {
     align-items: flex-start;
     display: grid;
     gap: 12px;
+  }
+
+  .login-wrap {
+    margin: 24px 0;
+  }
+
+  .login-form {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,7 +1,21 @@
 import { render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 import App from "./App";
+
+vi.mock("./components/RequireAuth", () => ({
+  RequireAuth: ({ children }: { children: ReactElement }) => children,
+}));
+
+vi.mock("./auth/AuthProvider", () => ({
+  useAuth: () => ({
+    loading: false,
+    session: { user: { email: "owner@example.com" } },
+    signInWithOtp: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 vi.mock("./api/digestsApi", () => ({
   listDigests: vi.fn().mockResolvedValue([]),
